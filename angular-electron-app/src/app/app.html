@@ -6,7 +6,7 @@
       <div class="logo-box">
         <mat-icon class="app-logo-icon">insights</mat-icon>
       </div>
-      <h1 class="header-title">Embedded Controller Monitoring</h1>
+      <h1 class="header-title">Atlas Copco &bull; Telemetry Dashboard</h1>
     </div>
 
     <div class="header-center-info">
@@ -14,8 +14,8 @@
       <div class="connection-status" [class.online]="backendConnected" [class.offline]="!backendConnected">
         <span class="status-indicator-dot"></span>
         <div class="connection-details">
-          <span class="connection-state">{{ backendConnected ? 'Connected' : 'Disconnected' }}</span>
-          <span class="connection-endpoint">Backend: http://localhost:8080</span>
+          <span class="connection-state">{{ backendConnected ? 'Connected (1s Poll)' : 'Disconnected (Retrying...)' }}</span>
+          <span class="connection-endpoint">http://localhost:8080/api/dashboard</span>
         </div>
       </div>
 
@@ -23,8 +23,8 @@
       <div class="update-clock">
         <mat-icon class="clock-icon">schedule</mat-icon>
         <div class="clock-details">
-          <span class="clock-label">Last Update</span>
-          <span class="clock-time">{{ lastUpdateFull || 'Waiting for stream...' }}</span>
+          <span class="clock-label">Last Updated</span>
+          <span class="clock-time">{{ lastUpdateFull || (isInitialLoading ? 'Connecting...' : 'No connection') }}</span>
         </div>
       </div>
     </div>
@@ -47,15 +47,15 @@
       </button>
 
       <!-- CSV Export -->
-      <button class="nav-btn btn-export-csv" (click)="exportCsv()" matTooltip="Export as comma-separated values (.csv)">
+      <button class="nav-btn btn-export-csv" (click)="exportCsv()" matTooltip="Export collected samples (.csv)">
         <mat-icon>file_download</mat-icon>
-        <span>CSV Export</span>
+        <span>Export CSV</span>
       </button>
 
       <!-- Excel Export -->
-      <button class="nav-btn btn-export-excel" (click)="exportExcel()" matTooltip="Export as Excel spreadsheet (.xls)">
+      <button class="nav-btn btn-export-excel" (click)="exportExcel()" matTooltip="Export collected samples (.xlsx)">
         <mat-icon>table_view</mat-icon>
-        <span>Excel Export</span>
+        <span>Export Excel</span>
       </button>
     </div>
   </header>
@@ -67,18 +67,18 @@
     <aside class="sidebar-nav">
       <nav class="nav-list">
         <button class="sidebar-item" [class.active]="activeTab === 'dashboard'" (click)="activeTab = 'dashboard'">
-          <mat-icon class="sidebar-icon">home</mat-icon>
-          <span>Dashboard</span>
+          <mat-icon class="sidebar-icon">speed</mat-icon>
+          <span>Telemetry</span>
         </button>
 
         <button class="sidebar-item" [class.active]="activeTab === 'settings'" (click)="activeTab = 'settings'">
-          <mat-icon class="sidebar-icon">settings</mat-icon>
-          <span>Settings</span>
+          <mat-icon class="sidebar-icon">tune</mat-icon>
+          <span>Configuration</span>
         </button>
 
         <button class="sidebar-item" [class.active]="activeTab === 'about'" (click)="activeTab = 'about'">
           <mat-icon class="sidebar-icon">info</mat-icon>
-          <span>About</span>
+          <span>System Info</span>
         </button>
       </nav>
 
@@ -107,7 +107,7 @@
               <mat-icon>{{ getOverallSystemStatus().isNormal ? 'check' : 'warning' }}</mat-icon>
             </div>
             <div class="status-copy">
-              <span class="status-kicker">System Status</span>
+              <span class="status-kicker">Overall Status</span>
               <h2 class="status-headline" [class.headline-alert]="!getOverallSystemStatus().isNormal">
                 {{ getOverallSystemStatus().title }}
               </h2>
@@ -117,16 +117,23 @@
 
           <div class="status-right-meta">
             <div class="timestamp-box">
+              <mat-icon class="meta-icon">history</mat-icon>
+              <div>
+                <span class="meta-label">Samples In Buffer</span>
+                <span class="meta-val">{{ liveTelemetry?.velocity?.history?.length ?? 0 }} / 100 max</span>
+              </div>
+            </div>
+            <div class="timestamp-box">
               <mat-icon class="meta-icon">schedule</mat-icon>
               <div>
-                <span class="meta-label">Latest Telemetry Update</span>
-                <span class="meta-val">{{ lastUpdateFull || 'Connecting to backend...' }}</span>
+                <span class="meta-label">Backend Timestamp</span>
+                <span class="meta-val">{{ lastUpdateFull || 'Connecting...' }}</span>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- 2. TELEMETRY 3-CARD CARDS (Velocity, Pressure, Temperature) -->
+        <!-- 2. TELEMETRY CARDS (Velocity, Pressure, Temperature) -->
         <section class="telemetry-cards-row">
 
           <!-- Velocity Card -->
@@ -144,134 +151,60 @@
 
             <!-- Gauge & Details -->
             <div class="gauge-and-specs">
-              <!-- SVG Semi-Circular Radial Gauge -->
-              <div class="gauge-container">
-                <svg class="semi-gauge" viewBox="0 0 160 95">
-                  <!-- Background Track Arc -->
-                  <path
-                    d="M 15 85 A 65 65 0 0 1 145 85"
-                    fill="none"
-                    class="gauge-bg-arc"
-                    stroke-width="12"
-                    stroke-linecap="round"
-                  />
-                  <!-- Colored Filled Arc -->
-                  <path
-                    d="M 15 85 A 65 65 0 0 1 145 85"
-                    fill="none"
-                    class="gauge-progress-arc velocity-stroke"
-                    stroke-width="12"
-                    stroke-linecap="round"
-                    stroke-dasharray="204.2"
-                    [attr.stroke-dashoffset]="getGaugeOffset(liveTelemetry?.velocity?.value ?? 0, 0, 300)"
-                  />
-                </svg>
-                <div class="gauge-center-text">
-                  <span class="gauge-big-num">{{ getConvertedVelocity() | number:'1.1-1' }}</span>
-                  <span class="gauge-unit">{{ velocityUnit }}</span>
-                </div>
-                <div class="gauge-range-labels">
-                  <span>0</span>
-                  <span>300</span>
-                </div>
-              </div>
+              <!-- Circular Gauge Component -->
+              <app-circular-gauge
+                [value]="getConvertedVelocity()"
+                [min]="velocityThresholds.min"
+                [max]="velocityThresholds.max"
+                [unit]="velocityUnit"
+                accentColor="#38bdf8"
+              ></app-circular-gauge>
 
               <!-- Specs & Selector Column -->
               <div class="metric-specs-col">
                 <div class="unit-selector-wrapper">
                   <span class="spec-label">Unit</span>
                   <select [(ngModel)]="velocityUnit" class="custom-unit-select">
-                    <option value="cm/s">cm/s</option>
                     <option value="mm/s">mm/s</option>
-                    <option value="in/s">in/s</option>
+                    <option value="cm/s">cm/s</option>
+                    <option value="m/s">m/s</option>
+                    <option value="km/h">km/h</option>
+                    <option value="ft/s">ft/s</option>
                   </select>
                 </div>
 
                 <div class="spec-row">
                   <div class="bullet-tag bullet-blue"></div>
                   <span class="spec-key">Range</span>
-                  <span class="spec-val">0 - 300 cm/s</span>
+                  <span class="spec-val">0 - {{ velocityThresholds.max | number:'1.0-1' }} {{ velocityUnit }}</span>
                 </div>
                 <div class="spec-row">
                   <div class="bullet-tag bullet-yellow"></div>
                   <span class="spec-key">Warning</span>
-                  <span class="spec-val">200 - 250 cm/s</span>
+                  <span class="spec-val">&gt; {{ velocityThresholds.warningHigh | number:'1.0-1' }} {{ velocityUnit }}</span>
                 </div>
                 <div class="spec-row">
                   <div class="bullet-tag bullet-red"></div>
                   <span class="spec-key">Critical</span>
-                  <span class="spec-val">&gt; 250 cm/s</span>
+                  <span class="spec-val">&gt; {{ velocityThresholds.criticalHigh | number:'1.0-1' }} {{ velocityUnit }}</span>
                 </div>
               </div>
             </div>
 
-            <!-- Timestamp note -->
             <div class="card-timestamp">
               <mat-icon>schedule</mat-icon>
-              <span>Last Updated: {{ lastUpdateFull || 'Waiting...' }}</span>
+              <span>Last Updated: {{ lastTelemetryUpdate || 'Waiting...' }}</span>
             </div>
 
-            <!-- Sparkline Trend Chart -->
-            <div class="chart-section">
-              <div class="chart-header">
-                <div class="chart-title">
-                  <mat-icon>trending_up</mat-icon>
-                  <span>Velocity Trend</span>
-                </div>
-                <div class="time-range-toggles">
-                  <button [class.active-range]="velocityTimeRange === '1H'" (click)="velocityTimeRange = '1H'">1H</button>
-                  <button [class.active-range]="velocityTimeRange === '6H'" (click)="velocityTimeRange = '6H'">6H</button>
-                  <button [class.active-range]="velocityTimeRange === '24H'" (click)="velocityTimeRange = '24H'">24H</button>
-                </div>
-              </div>
-
-              <div class="trend-canvas-box">
-                <svg class="trend-svg" viewBox="0 0 300 100" preserveAspectRatio="none">
-                  <!-- Area fill gradient -->
-                  <defs>
-                    <linearGradient id="velocityGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/>
-                      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0"/>
-                    </linearGradient>
-                  </defs>
-                  <!-- Background grid lines -->
-                  <line x1="0" y1="20" x2="300" y2="20" class="svg-grid-line"/>
-                  <line x1="0" y1="50" x2="300" y2="50" class="svg-grid-line"/>
-                  <line x1="0" y1="80" x2="300" y2="80" class="svg-grid-line"/>
-
-                  <!-- Trend Line & Area -->
-                  <polygon
-                    [attr.points]="getSparklineArea(liveTelemetry?.velocity?.history, 0, 300)"
-                    fill="url(#velocityGrad)"
-                  />
-                  <polyline
-                    [attr.points]="getSparklinePoints(liveTelemetry?.velocity?.history, 0, 300)"
-                    fill="none"
-                    stroke="#38bdf8"
-                    stroke-width="2.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                  <!-- Current endpoint dot -->
-                  <circle cx="295" cy="40" r="4" fill="#38bdf8" stroke="#ffffff" stroke-width="1.5" />
-                </svg>
-
-                <!-- Tooltip Overlay Flag -->
-                <div class="floating-data-tag">
-                  <span class="flag-time">{{ lastTelemetryUpdate || '15:10:05' }}</span>
-                  <span class="flag-val">{{ liveTelemetry?.velocity?.value ?? 185.4 | number:'1.1-1' }} cm/s</span>
-                </div>
-              </div>
-
-              <div class="chart-x-labels">
-                <span>15:00</span>
-                <span>15:02</span>
-                <span>15:04</span>
-                <span>15:06</span>
-                <span>15:08</span>
-                <span>15:10</span>
-              </div>
-            </div>
+            <!-- Interactive Trend Chart -->
+            <app-trend-chart
+              [data]="velocityChartData"
+              title="Velocity Trend"
+              [unit]="velocityUnit"
+              icon="speed"
+              strokeColor="#38bdf8"
+              gradId="velGrad"
+            ></app-trend-chart>
           </div>
 
           <!-- Pressure Card -->
@@ -289,127 +222,61 @@
 
             <!-- Gauge & Details -->
             <div class="gauge-and-specs">
-              <!-- SVG Radial Gauge -->
-              <div class="gauge-container">
-                <svg class="semi-gauge" viewBox="0 0 160 95">
-                  <path
-                    d="M 15 85 A 65 65 0 0 1 145 85"
-                    fill="none"
-                    class="gauge-bg-arc"
-                    stroke-width="12"
-                    stroke-linecap="round"
-                  />
-                  <path
-                    d="M 15 85 A 65 65 0 0 1 145 85"
-                    fill="none"
-                    class="gauge-progress-arc pressure-stroke"
-                    stroke-width="12"
-                    stroke-linecap="round"
-                    stroke-dasharray="204.2"
-                    [attr.stroke-dashoffset]="getGaugeOffset(liveTelemetry?.pressure?.value ?? 1012, 900, 1100)"
-                  />
-                </svg>
-                <div class="gauge-center-text">
-                  <span class="gauge-big-num">{{ getConvertedPressure() | number:'1.0-1' }}</span>
-                  <span class="gauge-unit">{{ pressureUnit }}</span>
-                </div>
-                <div class="gauge-range-labels">
-                  <span>900</span>
-                  <span>1100</span>
-                </div>
-              </div>
+              <!-- Circular Gauge Component -->
+              <app-circular-gauge
+                [value]="getConvertedPressure()"
+                [min]="pressureThresholds.min"
+                [max]="pressureThresholds.max"
+                [unit]="pressureUnit"
+                accentColor="#10b981"
+              ></app-circular-gauge>
 
               <!-- Specs & Selector Column -->
               <div class="metric-specs-col">
                 <div class="unit-selector-wrapper">
                   <span class="spec-label">Unit</span>
                   <select [(ngModel)]="pressureUnit" class="custom-unit-select">
+                    <option value="Pa">Pa</option>
+                    <option value="kPa">kPa</option>
                     <option value="mbar">mbar</option>
                     <option value="bar">bar</option>
                     <option value="psi">psi</option>
+                    <option value="atm">atm</option>
                   </select>
                 </div>
 
                 <div class="spec-row">
                   <div class="bullet-tag bullet-blue"></div>
                   <span class="spec-key">Range</span>
-                  <span class="spec-val">950 - 1050 mbar</span>
+                  <span class="spec-val">{{ pressureThresholds.min | number:'1.0-1' }} - {{ pressureThresholds.max | number:'1.0-1' }} {{ pressureUnit }}</span>
                 </div>
                 <div class="spec-row">
                   <div class="bullet-tag bullet-yellow"></div>
                   <span class="spec-key">Warning</span>
-                  <span class="spec-val">900-950 / 1050-1100</span>
+                  <span class="spec-val">&lt; {{ pressureThresholds.warningLow | number:'1.0-1' }} / &gt; {{ pressureThresholds.warningHigh | number:'1.0-1' }}</span>
                 </div>
                 <div class="spec-row">
                   <div class="bullet-tag bullet-red"></div>
                   <span class="spec-key">Critical</span>
-                  <span class="spec-val">&lt; 900 / &gt; 1100</span>
+                  <span class="spec-val">&lt; {{ pressureThresholds.criticalLow | number:'1.0-1' }} / &gt; {{ pressureThresholds.criticalHigh | number:'1.0-1' }}</span>
                 </div>
               </div>
             </div>
 
-            <!-- Timestamp note -->
             <div class="card-timestamp">
               <mat-icon>schedule</mat-icon>
-              <span>Last Updated: {{ lastUpdateFull || 'Waiting...' }}</span>
+              <span>Last Updated: {{ lastTelemetryUpdate || 'Waiting...' }}</span>
             </div>
 
-            <!-- Sparkline Trend Chart -->
-            <div class="chart-section">
-              <div class="chart-header">
-                <div class="chart-title">
-                  <mat-icon>trending_up</mat-icon>
-                  <span>Pressure Trend</span>
-                </div>
-                <div class="time-range-toggles">
-                  <button [class.active-range]="pressureTimeRange === '1H'" (click)="pressureTimeRange = '1H'">1H</button>
-                  <button [class.active-range]="pressureTimeRange === '6H'" (click)="pressureTimeRange = '6H'">6H</button>
-                  <button [class.active-range]="pressureTimeRange === '24H'" (click)="pressureTimeRange = '24H'">24H</button>
-                </div>
-              </div>
-
-              <div class="trend-canvas-box">
-                <svg class="trend-svg" viewBox="0 0 300 100" preserveAspectRatio="none">
-                  <defs>
-                    <linearGradient id="pressureGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stop-color="#10b981" stop-opacity="0.35"/>
-                      <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
-                    </linearGradient>
-                  </defs>
-                  <line x1="0" y1="20" x2="300" y2="20" class="svg-grid-line"/>
-                  <line x1="0" y1="50" x2="300" y2="50" class="svg-grid-line"/>
-                  <line x1="0" y1="80" x2="300" y2="80" class="svg-grid-line"/>
-
-                  <polygon
-                    [attr.points]="getSparklineArea(liveTelemetry?.pressure?.history, 900, 1100)"
-                    fill="url(#pressureGrad)"
-                  />
-                  <polyline
-                    [attr.points]="getSparklinePoints(liveTelemetry?.pressure?.history, 900, 1100)"
-                    fill="none"
-                    stroke="#10b981"
-                    stroke-width="2.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                  <circle cx="295" cy="35" r="4" fill="#10b981" stroke="#ffffff" stroke-width="1.5" />
-                </svg>
-
-                <div class="floating-data-tag">
-                  <span class="flag-time">{{ lastTelemetryUpdate || '15:10:05' }}</span>
-                  <span class="flag-val">{{ liveTelemetry?.pressure?.value ?? 1012 | number:'1.0-0' }} mbar</span>
-                </div>
-              </div>
-
-              <div class="chart-x-labels">
-                <span>15:00</span>
-                <span>15:02</span>
-                <span>15:04</span>
-                <span>15:06</span>
-                <span>15:08</span>
-                <span>15:10</span>
-              </div>
-            </div>
+            <!-- Interactive Trend Chart -->
+            <app-trend-chart
+              [data]="pressureChartData"
+              title="Pressure Trend"
+              [unit]="pressureUnit"
+              icon="compress"
+              strokeColor="#10b981"
+              gradId="pressGrad"
+            ></app-trend-chart>
           </div>
 
           <!-- Temperature Card -->
@@ -427,35 +294,14 @@
 
             <!-- Gauge & Details -->
             <div class="gauge-and-specs">
-              <!-- SVG Radial Gauge -->
-              <div class="gauge-container">
-                <svg class="semi-gauge" viewBox="0 0 160 95">
-                  <path
-                    d="M 15 85 A 65 65 0 0 1 145 85"
-                    fill="none"
-                    class="gauge-bg-arc"
-                    stroke-width="12"
-                    stroke-linecap="round"
-                  />
-                  <path
-                    d="M 15 85 A 65 65 0 0 1 145 85"
-                    fill="none"
-                    class="gauge-progress-arc temp-stroke"
-                    stroke-width="12"
-                    stroke-linecap="round"
-                    stroke-dasharray="204.2"
-                    [attr.stroke-dashoffset]="getGaugeOffset(liveTelemetry?.temperature?.value ?? 42.6, 20, 50)"
-                  />
-                </svg>
-                <div class="gauge-center-text">
-                  <span class="gauge-big-num">{{ getConvertedTemp() | number:'1.1-1' }}</span>
-                  <span class="gauge-unit">{{ tempUnit }}</span>
-                </div>
-                <div class="gauge-range-labels">
-                  <span>20</span>
-                  <span>50</span>
-                </div>
-              </div>
+              <!-- Circular Gauge Component -->
+              <app-circular-gauge
+                [value]="getConvertedTemp()"
+                [min]="tempThresholds.min"
+                [max]="tempThresholds.max"
+                [unit]="tempUnit"
+                accentColor="#f59e0b"
+              ></app-circular-gauge>
 
               <!-- Specs & Selector Column -->
               <div class="metric-specs-col">
@@ -471,92 +317,44 @@
                 <div class="spec-row">
                   <div class="bullet-tag bullet-blue"></div>
                   <span class="spec-key">Range</span>
-                  <span class="spec-val">20 - 40 °C</span>
+                  <span class="spec-val">{{ tempThresholds.min | number:'1.0-1' }} - {{ tempThresholds.max | number:'1.0-1' }} {{ tempUnit }}</span>
                 </div>
                 <div class="spec-row">
                   <div class="bullet-tag bullet-yellow"></div>
                   <span class="spec-key">Warning</span>
-                  <span class="spec-val">40 - 50 °C</span>
+                  <span class="spec-val">&gt; {{ tempThresholds.warningHigh | number:'1.0-1' }} {{ tempUnit }}</span>
                 </div>
                 <div class="spec-row">
                   <div class="bullet-tag bullet-red"></div>
                   <span class="spec-key">Critical</span>
-                  <span class="spec-val">&gt; 50 °C</span>
+                  <span class="spec-val">&gt; {{ tempThresholds.criticalHigh | number:'1.0-1' }} {{ tempUnit }}</span>
                 </div>
               </div>
             </div>
 
-            <!-- Timestamp note -->
             <div class="card-timestamp">
               <mat-icon>schedule</mat-icon>
-              <span>Last Updated: {{ lastUpdateFull || 'Waiting...' }}</span>
+              <span>Last Updated: {{ lastTelemetryUpdate || 'Waiting...' }}</span>
             </div>
 
-            <!-- Sparkline Trend Chart -->
-            <div class="chart-section">
-              <div class="chart-header">
-                <div class="chart-title">
-                  <mat-icon>trending_up</mat-icon>
-                  <span>Temperature Trend</span>
-                </div>
-                <div class="time-range-toggles">
-                  <button [class.active-range]="tempTimeRange === '1H'" (click)="tempTimeRange = '1H'">1H</button>
-                  <button [class.active-range]="tempTimeRange === '6H'" (click)="tempTimeRange = '6H'">6H</button>
-                  <button [class.active-range]="tempTimeRange === '24H'" (click)="tempTimeRange = '24H'">24H</button>
-                </div>
-              </div>
-
-              <div class="trend-canvas-box">
-                <svg class="trend-svg" viewBox="0 0 300 100" preserveAspectRatio="none">
-                  <defs>
-                    <linearGradient id="tempGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.35"/>
-                      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.0"/>
-                    </linearGradient>
-                  </defs>
-                  <line x1="0" y1="20" x2="300" y2="20" class="svg-grid-line"/>
-                  <line x1="0" y1="50" x2="300" y2="50" class="svg-grid-line"/>
-                  <line x1="0" y1="80" x2="300" y2="80" class="svg-grid-line"/>
-
-                  <polygon
-                    [attr.points]="getSparklineArea(liveTelemetry?.temperature?.history, 20, 50)"
-                    fill="url(#tempGrad)"
-                  />
-                  <polyline
-                    [attr.points]="getSparklinePoints(liveTelemetry?.temperature?.history, 20, 50)"
-                    fill="none"
-                    stroke="#f59e0b"
-                    stroke-width="2.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                  <circle cx="295" cy="30" r="4" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5" />
-                </svg>
-
-                <div class="floating-data-tag">
-                  <span class="flag-time">{{ lastTelemetryUpdate || '15:10:05' }}</span>
-                  <span class="flag-val">{{ liveTelemetry?.temperature?.value ?? 42.6 | number:'1.1-1' }} °C</span>
-                </div>
-              </div>
-
-              <div class="chart-x-labels">
-                <span>15:00</span>
-                <span>15:02</span>
-                <span>15:04</span>
-                <span>15:06</span>
-                <span>15:08</span>
-                <span>15:10</span>
-              </div>
-            </div>
+            <!-- Interactive Trend Chart -->
+            <app-trend-chart
+              [data]="tempChartData"
+              title="Temperature Trend"
+              [unit]="tempUnit"
+              icon="device_thermostat"
+              strokeColor="#f59e0b"
+              gradId="tmpGrad"
+            ></app-trend-chart>
           </div>
         </section>
 
-        <!-- 3. BOTTOM SECTION: QUICK CONTROLS | RECENT DATA SUMMARY | EXPORT DATA -->
+        <!-- 3. BOTTOM SUMMARY & ACTIONS -->
         <section class="bottom-widgets-grid">
           
-          <!-- Widget 1: Quick Controls -->
+          <!-- Widget 1: Quick Unit Controls -->
           <div class="widget-box quick-controls-box">
-            <h3 class="widget-heading">Quick Controls</h3>
+            <h3 class="widget-heading">Unit Selectors</h3>
             
             <div class="controls-inputs">
               <div class="unit-control-item">
@@ -565,9 +363,11 @@
                   <span>Velocity Unit</span>
                 </div>
                 <select [(ngModel)]="velocityUnit" class="custom-widget-select">
-                  <option value="cm/s">cm/s</option>
                   <option value="mm/s">mm/s</option>
-                  <option value="in/s">in/s</option>
+                  <option value="cm/s">cm/s</option>
+                  <option value="m/s">m/s</option>
+                  <option value="km/h">km/h</option>
+                  <option value="ft/s">ft/s</option>
                 </select>
               </div>
 
@@ -577,9 +377,12 @@
                   <span>Pressure Unit</span>
                 </div>
                 <select [(ngModel)]="pressureUnit" class="custom-widget-select">
+                  <option value="Pa">Pa</option>
+                  <option value="kPa">kPa</option>
                   <option value="mbar">mbar</option>
                   <option value="bar">bar</option>
                   <option value="psi">psi</option>
+                  <option value="atm">atm</option>
                 </select>
               </div>
 
@@ -599,15 +402,15 @@
 
           <!-- Widget 2: Recent Data Summary Table -->
           <div class="widget-box summary-table-box">
-            <h3 class="widget-heading">Recent Data Summary</h3>
+            <h3 class="widget-heading">Telemetry Summary</h3>
 
             <table class="recent-summary-table">
               <thead>
                 <tr>
                   <th>Parameter</th>
-                  <th>Value</th>
-                  <th>Unit</th>
-                  <th>Status</th>
+                  <th>Current Reading</th>
+                  <th>Display Unit</th>
+                  <th>Health Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -618,7 +421,7 @@
                       Velocity
                     </span>
                   </td>
-                  <td class="bold-val">{{ getConvertedVelocity() | number:'1.1-1' }}</td>
+                  <td class="bold-val">{{ getConvertedVelocity() | number:'1.1-2' }}</td>
                   <td class="dim-unit">{{ velocityUnit }}</td>
                   <td>
                     <span class="badge" [ngClass]="getVelocityStatus().class">
@@ -634,7 +437,7 @@
                       Pressure
                     </span>
                   </td>
-                  <td class="bold-val">{{ getConvertedPressure() | number:'1.0-1' }}</td>
+                  <td class="bold-val">{{ getConvertedPressure() | number:'1.1-2' }}</td>
                   <td class="dim-unit">{{ pressureUnit }}</td>
                   <td>
                     <span class="badge" [ngClass]="getPressureStatus().class">
@@ -650,7 +453,7 @@
                       Temperature
                     </span>
                   </td>
-                  <td class="bold-val">{{ getConvertedTemp() | number:'1.1-1' }}</td>
+                  <td class="bold-val">{{ getConvertedTemp() | number:'1.1-2' }}</td>
                   <td class="dim-unit">{{ tempUnit }}</td>
                   <td>
                     <span class="badge" [ngClass]="getTempStatus().class">
@@ -665,153 +468,22 @@
 
           <!-- Widget 3: Export Data -->
           <div class="widget-box export-actions-box">
-            <h3 class="widget-heading">Export Data</h3>
+            <h3 class="widget-heading">Historical Data Export</h3>
             <p class="export-description">
-              Download collected telemetry data in your preferred format.
+              Download the latest 100 historical telemetry samples in your chosen units.
             </p>
 
             <div class="export-btns-group">
               <button class="export-btn blue-export" (click)="exportCsv()">
                 <mat-icon>file_download</mat-icon>
-                <span>CSV Export</span>
+                <span>Export CSV</span>
               </button>
 
               <button class="export-btn green-export" (click)="exportExcel()">
                 <mat-icon>table_view</mat-icon>
-                <span>Excel Export</span>
+                <span>Export Excel (.xlsx)</span>
               </button>
             </div>
-          </div>
-        </section>
-
-        <!-- 4. INDUSTRIAL FLEET ASSETS TABLE (Preserving full CRUD capability) -->
-        <section class="fleet-assets-section">
-          <div class="fleet-header">
-            <div class="fleet-title-meta">
-              <mat-icon class="fleet-icon">precision_manufacturing</mat-icon>
-              <div>
-                <h3 class="fleet-title">Industrial Equipment &amp; Fleet Roster</h3>
-                <span class="fleet-subtitle">Manage registered field machinery, runtime logs &amp; scheduled maintenance</span>
-              </div>
-            </div>
-
-            <div class="fleet-actions">
-              <!-- Search Input -->
-              <div class="search-input-box">
-                <mat-icon class="search-icon">search</mat-icon>
-                <input
-                  type="text"
-                  [(ngModel)]="searchQuery"
-                  (ngModelChange)="onSearchChange()"
-                  placeholder="Search assets by ID, model, name..."
-                  class="search-input"
-                >
-                <button *ngIf="searchQuery" class="clear-btn" (click)="searchQuery = ''; onSearchChange()">
-                  <mat-icon>close</mat-icon>
-                </button>
-              </div>
-
-              <!-- Register Equipment Button -->
-              <button class="register-asset-btn" (click)="openCreateDialog()">
-                <mat-icon>add</mat-icon>
-                <span>Register Equipment</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Status Filters Filter Pills -->
-          <div class="filter-pills-bar">
-            <button
-              class="pill-btn"
-              [class.pill-active]="currentFilter === 'ALL'"
-              (click)="setFilter('ALL')"
-            >
-              All ({{ allEquipment.length }})
-            </button>
-            <button
-              class="pill-btn"
-              [class.pill-active]="currentFilter === 'Operational'"
-              (click)="setFilter('Operational')"
-            >
-              Operational ({{ summary.operational }})
-            </button>
-            <button
-              class="pill-btn"
-              [class.pill-active]="currentFilter === 'Maintenance Due'"
-              (click)="setFilter('Maintenance Due')"
-            >
-              Maintenance Due ({{ summary.maintenanceDue }})
-            </button>
-            <button
-              class="pill-btn"
-              [class.pill-active]="currentFilter === 'Offline'"
-              (click)="setFilter('Offline')"
-            >
-              Offline ({{ summary.offline }})
-            </button>
-            <button
-              class="pill-btn"
-              [class.pill-active]="currentFilter === 'Standby'"
-              (click)="setFilter('Standby')"
-            >
-              Standby ({{ summary.standby }})
-            </button>
-          </div>
-
-          <!-- Table Container -->
-          <div class="assets-table-wrapper">
-            <table class="assets-table">
-              <thead>
-                <tr>
-                  <th>Asset ID</th>
-                  <th>Machine &amp; Model</th>
-                  <th>Category</th>
-                  <th>Pressure</th>
-                  <th>Core Temp</th>
-                  <th>Runtime Hours</th>
-                  <th>Status</th>
-                  <th class="text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let item of filteredEquipment" class="asset-row">
-                  <td><span class="id-badge">{{ item.id }}</span></td>
-                  <td>
-                    <div class="machine-name">{{ item.name }}</div>
-                    <div class="machine-model">{{ item.modelNumber }}</div>
-                  </td>
-                  <td><span class="category-tag">{{ item.category }}</span></td>
-                  <td class="bold-val">{{ item.operatingPressureBar }} bar</td>
-                  <td>
-                    <span [class.temp-warning-text]="item.temperatureCelsius > 75">
-                      {{ item.temperatureCelsius }}°C
-                    </span>
-                  </td>
-                  <td>{{ item.runtimeHours | number }} hrs</td>
-                  <td>
-                    <span class="badge" [ngClass]="getStatusClass(item.status)">
-                      <span class="badge-dot"></span>
-                      {{ item.status }}
-                    </span>
-                  </td>
-                  <td class="text-right">
-                    <button class="action-btn edit-btn" (click)="openEditDialog(item)" matTooltip="Edit Asset">
-                      <mat-icon>edit</mat-icon>
-                    </button>
-                    <button class="action-btn delete-btn" (click)="deleteItem(item)" matTooltip="Delete Asset">
-                      <mat-icon>delete</mat-icon>
-                    </button>
-                  </td>
-                </tr>
-
-                <tr *ngIf="filteredEquipment.length === 0">
-                  <td colspan="8" class="empty-state-cell">
-                    <mat-icon class="empty-icon">search_off</mat-icon>
-                    <p>No matching industrial machinery found.</p>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
           </div>
         </section>
 
@@ -826,7 +498,7 @@
           <div class="setting-item">
             <div class="setting-info">
               <span class="setting-title">Appearance Mode</span>
-              <span class="setting-sub">Switch between high-contrast dark cockpit theme and clean light theme</span>
+              <span class="setting-sub">Switch between dark cockpit theme and clean light theme</span>
             </div>
             <button class="theme-toggle-btn" (click)="toggleTheme()">
               {{ isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme' }}
@@ -844,7 +516,7 @@
           <div class="setting-item">
             <div class="setting-info">
               <span class="setting-title">Stream Status</span>
-              <span class="setting-sub">{{ backendConnected ? 'Active and streaming live frames every 1.5s' : 'Disconnected / retrying...' }}</span>
+              <span class="setting-sub">{{ backendConnected ? 'Active and streaming live frames every 1.0s' : 'Disconnected / retrying...' }}</span>
             </div>
             <span class="badge" [ngClass]="backendConnected ? 'status-normal' : 'status-critical'">
               {{ backendConnected ? 'ONLINE' : 'OFFLINE' }}
@@ -853,13 +525,9 @@
 
           <div class="setting-item">
             <div class="setting-info">
-              <span class="setting-title">Reset Demo Dataset</span>
-              <span class="setting-sub">Restore all mock equipment records to initial factory values</span>
+              <span class="setting-title">Unit Configurations</span>
+              <span class="setting-sub">Velocity: {{ velocityUnit }} | Pressure: {{ pressureUnit }} | Temperature: {{ tempUnit }}</span>
             </div>
-            <button class="reset-btn" (click)="resetMockData()">
-              <mat-icon>restart_alt</mat-icon>
-              Reset Mock Data
-            </button>
           </div>
         </div>
       </div>
@@ -867,20 +535,20 @@
       <!-- ABOUT TAB -->
       <div *ngIf="activeTab === 'about'" class="tab-pane about-pane">
         <div class="panel-box">
-          <h2 class="panel-title">Atlas Copco &bull; Industrial Telemetry Suite</h2>
+          <h2 class="panel-title">Atlas Copco &bull; Telemetry Monitoring Suite</h2>
           <p class="panel-desc">Version {{ appVersion }} | Architecture: {{ platformDetails.arch || 'x64' }} ({{ platformDetails.platform }})</p>
           <div class="about-grid">
             <div class="about-card">
-              <h4>Angular &amp; Material 22</h4>
-              <p>Reactive UI stream powered by RxJS and modern Angular standalone architecture.</p>
+              <h4>Angular &amp; Material</h4>
+              <p>Reactive UI stream powered by RxJS 1-second interval polling, client-side unit conversions, and interactive zoom/pan trend graphs.</p>
             </div>
             <div class="about-card">
               <h4>Spring Boot 3</h4>
-              <p>Embedded real-time telemetry generator broadcasting live sensor metrics over REST &amp; WebSocket.</p>
+              <p>Real-time telemetry generator broadcasting live sensor metrics with bounded 100-sample retention over <code>GET /api/dashboard</code>.</p>
             </div>
             <div class="about-card">
               <h4>Electron Integration</h4>
-              <p>Cross-platform industrial desktop workstation runtime wrapper for factory floor deployment.</p>
+              <p>Secure Windows desktop workstation runtime wrapper with context isolation and safe IPC bridges.</p>
             </div>
           </div>
         </div>

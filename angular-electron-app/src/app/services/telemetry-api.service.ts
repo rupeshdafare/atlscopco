@@ -24,7 +24,7 @@ export class TelemetryApiService {
    * Streams live dashboard telemetry polling at the specified interval (default 1.5s to match @Scheduled in backend)
    * Using catchError inside switchMap guarantees polling continues even if backend is temporarily unreachable.
    */
-  public streamDashboardData(pollIntervalMs = 1500): Observable<DashboardResponse | null> {
+  public streamDashboardData(pollIntervalMs = 1000): Observable<DashboardResponse | null> {
     return timer(0, pollIntervalMs).pipe(
       switchMap(() => this.getDashboardData().pipe(
         catchError((err) => {

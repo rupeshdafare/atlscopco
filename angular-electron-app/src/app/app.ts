@@ -6,24 +6,22 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
-import { MatTableModule } from '@angular/material/table';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDividerModule } from '@angular/material/divider';
-import { MatBadgeModule } from '@angular/material/badge';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
 
-import { EquipmentService, EquipmentSummary } from './services/equipment.service';
 import { ElectronService, PlatformInfo } from './services/electron.service';
 import { TelemetryApiService } from './services/telemetry-api.service';
-import { Equipment, EquipmentFilter } from './models/equipment.model';
+import { TelemetryExportService } from './services/telemetry-export.service';
 import { DashboardResponse } from './models/telemetry.model';
-import { EquipmentDialogComponent } from './components/equipment-dialog/equipment-dialog.component';
+import {
+  UnitConverter,
+  VelocityUnit,
+  PressureUnit,
+  TemperatureUnit,
+  ParameterThresholds
+} from './services/unit-converter';
+import { TrendChartComponent, ChartDataPoint } from './components/trend-chart/trend-chart.component';
+import { CircularGaugeComponent } from './components/circular-gauge/circular-gauge.component';
 
 @Component({
   selector: 'app-root',
@@ -35,49 +33,19 @@ import { EquipmentDialogComponent } from './components/equipment-dialog/equipmen
     MatButtonModule,
     MatIconModule,
     MatCardModule,
-    MatTableModule,
-    MatChipsModule,
-    MatDialogModule,
     MatSnackBarModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
     MatTooltipModule,
-    MatDividerModule,
-    MatBadgeModule,
-    MatProgressBarModule
+    TrendChartComponent,
+    CircularGaugeComponent
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })
 export class App implements OnInit, OnDestroy {
-  public displayedColumns: string[] = [
-    'id',
-    'name',
-    'category',
-    'operatingPressureBar',
-    'temperatureCelsius',
-    'runtimeHours',
-    'status',
-    'actions'
-  ];
-
-  public allEquipment: Equipment[] = [];
-  public filteredEquipment: Equipment[] = [];
-  public currentFilter: EquipmentFilter = 'ALL';
-  public searchQuery = '';
-  public summary: EquipmentSummary = {
-    total: 0,
-    operational: 0,
-    maintenanceDue: 0,
-    offline: 0,
-    standby: 0,
-    avgTemperature: 0
-  };
-
   // Live Backend Telemetry State
   public liveTelemetry: DashboardResponse | null = null;
   public backendConnected = false;
+  public isInitialLoading = true;
   public lastTelemetryUpdate: string | null = null;
   public lastUpdateFull: string = '';
   private telemetrySub?: Subscription;
@@ -86,25 +54,20 @@ export class App implements OnInit, OnDestroy {
   public isDarkMode = true;
   public activeTab: 'dashboard' | 'settings' | 'about' = 'dashboard';
 
-  // Time range filters for graphs (1H, 6H, 24H)
-  public velocityTimeRange: '1H' | '6H' | '24H' = '1H';
-  public pressureTimeRange: '1H' | '6H' | '24H' = '1H';
-  public tempTimeRange: '1H' | '6H' | '24H' = '1H';
+  // Selected Units
+  public velocityUnit: VelocityUnit = 'cm/s';
+  public pressureUnit: PressureUnit = 'mbar';
+  public tempUnit: TemperatureUnit = '°C';
 
-  // Unit conversions / selectors
-  public velocityUnit: string = 'cm/s';
-  public pressureUnit: string = 'mbar';
-  public tempUnit: string = '°C';
-
+  // Desktop / Platform Info
   public isDesktop = false;
   public platformDetails: PlatformInfo = { platform: 'unknown', arch: '', version: '' };
   public appVersion = '1.0.0';
 
   constructor(
-    private equipmentService: EquipmentService,
     private electronService: ElectronService,
     private telemetryApi: TelemetryApiService,
-    private dialog: MatDialog,
+    private exportService: TelemetryExportService,
     private snackBar: MatSnackBar
   ) {}
 
@@ -123,19 +86,14 @@ export class App implements OnInit, OnDestroy {
       document.body.classList.remove('light-theme');
     }
 
-    // Subscribe to equipment stream
-    this.equipmentService.items$.subscribe(items => {
-      this.allEquipment = items;
-      this.applyFilter();
-    });
-
-    // Subscribe to real-time computed metrics
-    this.equipmentService.summary$.subscribe(sum => {
-      this.summary = sum;
-    });
-
-    // Connect to the running Spring Boot Backend API (polls every 1500ms)
+    // Connect to 1-second live telemetry stream
     this.connectBackendTelemetry();
+  }
+
+  public ngOnDestroy(): void {
+    if (this.telemetrySub) {
+      this.telemetrySub.unsubscribe();
+    }
   }
 
   public toggleTheme(): void {
@@ -149,28 +107,28 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  public ngOnDestroy(): void {
+  public connectBackendTelemetry(): void {
     if (this.telemetrySub) {
       this.telemetrySub.unsubscribe();
     }
-  }
 
-  public connectBackendTelemetry(): void {
-    this.telemetrySub = this.telemetryApi.streamDashboardData(1500).subscribe({
+    this.telemetrySub = this.telemetryApi.streamDashboardData(1000).subscribe({
       next: (data) => {
+        this.isInitialLoading = false;
         if (data) {
           this.liveTelemetry = data;
           this.backendConnected = true;
           const now = new Date();
-          this.lastTelemetryUpdate = now.toLocaleTimeString();
-          this.lastUpdateFull = `${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ${now.toLocaleTimeString()}`;
+          this.lastTelemetryUpdate = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          this.lastUpdateFull = `${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ${this.lastTelemetryUpdate}`;
         } else {
           this.backendConnected = false;
         }
       },
       error: (err) => {
-        console.warn('Backend API connection warning:', err);
+        this.isInitialLoading = false;
         this.backendConnected = false;
+        console.warn('Backend API connection warning:', err);
       }
     });
   }
@@ -181,39 +139,47 @@ export class App implements OnInit, OnDestroy {
         this.liveTelemetry = data;
         this.backendConnected = true;
         const now = new Date();
-        this.lastTelemetryUpdate = now.toLocaleTimeString();
-        this.lastUpdateFull = `${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ${now.toLocaleTimeString()}`;
+        this.lastTelemetryUpdate = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        this.lastUpdateFull = `${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ${this.lastTelemetryUpdate}`;
         this.snackBar.open('Telemetry synchronized successfully', 'Dismiss', { duration: 2000 });
       },
       error: () => {
+        this.backendConnected = false;
         this.snackBar.open('Could not reach backend at localhost:8080', 'Dismiss', { duration: 2500 });
       }
     });
   }
 
-  // Value conversions
+  // --- CONVERTED VALUES (Current scalar) ---
   public getConvertedVelocity(): number {
     const raw = this.liveTelemetry?.velocity?.value ?? 0;
-    if (this.velocityUnit === 'mm/s') return raw * 10;
-    if (this.velocityUnit === 'in/s') return raw * 0.3937;
-    return raw;
+    return UnitConverter.convertVelocity(raw, this.velocityUnit);
   }
 
   public getConvertedPressure(): number {
     const raw = this.liveTelemetry?.pressure?.value ?? 0;
-    if (this.pressureUnit === 'bar') return raw / 1000;
-    if (this.pressureUnit === 'psi') return raw * 0.0145038;
-    return raw;
+    return UnitConverter.convertPressure(raw, this.pressureUnit);
   }
 
   public getConvertedTemp(): number {
     const raw = this.liveTelemetry?.temperature?.value ?? 0;
-    if (this.tempUnit === '°F') return (raw * 9) / 5 + 32;
-    if (this.tempUnit === 'K') return raw + 273.15;
-    return raw;
+    return UnitConverter.convertTemperature(raw, this.tempUnit);
   }
 
-  // Status checks for cards
+  // --- DYNAMIC THRESHOLDS PER UNIT ---
+  public get velocityThresholds(): ParameterThresholds {
+    return UnitConverter.getVelocityThresholds(this.velocityUnit);
+  }
+
+  public get pressureThresholds(): ParameterThresholds {
+    return UnitConverter.getPressureThresholds(this.pressureUnit);
+  }
+
+  public get tempThresholds(): ParameterThresholds {
+    return UnitConverter.getTemperatureThresholds(this.tempUnit);
+  }
+
+  // --- STATUS EVALUATION (Canonical baseline) ---
   public getVelocityStatus(): { label: string; class: string } {
     const val = this.liveTelemetry?.velocity?.value ?? 0;
     if (val > 250) return { label: 'Critical', class: 'status-critical' };
@@ -243,79 +209,63 @@ export class App implements OnInit, OnDestroy {
     if (v.label === 'Critical' || p.label === 'Critical' || t.label === 'Critical') {
       return {
         title: 'System Alert',
-        subtitle: 'One or more machine telemetry metrics have exceeded safe operational limits.',
+        subtitle: 'One or more telemetry parameters exceed normal operational thresholds.',
         isNormal: false
       };
     }
     if (v.label === 'Warning' || p.label === 'Warning' || t.label === 'Warning') {
       return {
         title: 'System Warning',
-        subtitle: 'Parameters approaching upper tolerance thresholds.',
+        subtitle: 'Parameters approaching upper tolerance bounds.',
         isNormal: false
       };
     }
     return {
       title: 'Normal',
-      subtitle: 'All parameters are within normal range.',
+      subtitle: 'All telemetry parameters are within normal safe ranges.',
       isNormal: true
     };
   }
 
-  // Semi-circular gauge arc calculation
-  // Total arc circumference for radius 65 over 180 degrees = PI * 65 ≈ 204.2
-  public getGaugeOffset(value: number, min: number, max: number): number {
-    const totalLength = 204.2;
-    const clamped = Math.max(min, Math.min(max, value));
-    const ratio = (clamped - min) / (max - min);
-    return totalLength * (1 - ratio);
+  // --- CONVERTED HISTORICAL DATA FOR CHARTS ---
+  public get velocityChartData(): ChartDataPoint[] {
+    const history = this.liveTelemetry?.velocity?.history || [];
+    return history.map(pt => ({
+      time: pt.time,
+      value: +UnitConverter.convertVelocity(pt.value, this.velocityUnit).toFixed(2)
+    }));
   }
 
-  // SVG Trend Line path generator
-  public getSparklinePoints(history: { time: string; value: number }[] | undefined, minVal: number, maxVal: number): string {
-    if (!history || history.length === 0) {
-      return '0,50 300,50';
-    }
-    const width = 300;
-    const height = 90;
-    const padding = 10;
-    const effHeight = height - padding * 2;
-    const step = width / Math.max(history.length - 1, 1);
-
-    return history.map((pt, i) => {
-      const x = (i * step).toFixed(1);
-      const ratio = Math.max(0, Math.min(1, (pt.value - minVal) / (maxVal - minVal)));
-      const y = (height - padding - ratio * effHeight).toFixed(1);
-      return `${x},${y}`;
-    }).join(' ');
+  public get pressureChartData(): ChartDataPoint[] {
+    const history = this.liveTelemetry?.pressure?.history || [];
+    return history.map(pt => ({
+      time: pt.time,
+      value: +UnitConverter.convertPressure(pt.value, this.pressureUnit).toFixed(2)
+    }));
   }
 
-  // Area fill under trend line
-  public getSparklineArea(history: { time: string; value: number }[] | undefined, minVal: number, maxVal: number): string {
-    const pts = this.getSparklinePoints(history, minVal, maxVal);
-    return `${pts} 300,100 0,100`;
+  public get tempChartData(): ChartDataPoint[] {
+    const history = this.liveTelemetry?.temperature?.history || [];
+    return history.map(pt => ({
+      time: pt.time,
+      value: +UnitConverter.convertTemperature(pt.value, this.tempUnit).toFixed(2)
+    }));
   }
 
-  // Exports
+  // --- DATA EXPORTS ---
   public exportCsv(): void {
     if (!this.liveTelemetry) {
       this.snackBar.open('No telemetry data available to export', 'Dismiss', { duration: 2500 });
       return;
     }
-    const rows = [
-      ['Metric', 'Current Value', 'Unit', 'Status', 'Timestamp'],
-      ['Velocity', this.liveTelemetry.velocity.value, this.liveTelemetry.velocity.unit, this.getVelocityStatus().label, this.liveTelemetry.timestamp],
-      ['Pressure', this.liveTelemetry.pressure.value, this.liveTelemetry.pressure.unit, this.getPressureStatus().label, this.liveTelemetry.timestamp],
-      ['Temperature', this.liveTelemetry.temperature.value, this.liveTelemetry.temperature.unit, this.getTempStatus().label, this.liveTelemetry.timestamp]
-    ];
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `telemetry_export_${Date.now()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    this.snackBar.open('CSV export downloaded', 'Dismiss', { duration: 2500 });
+    const rows = this.exportService.generateExportRows(
+      this.liveTelemetry,
+      this.velocityUnit,
+      this.pressureUnit,
+      this.tempUnit
+    );
+    this.exportService.exportCsv(rows, `telemetry_export_${Date.now()}.csv`);
+    this.snackBar.open(`Exported ${rows.length} telemetry samples to CSV`, 'Dismiss', { duration: 2500 });
   }
 
   public exportExcel(): void {
@@ -323,144 +273,13 @@ export class App implements OnInit, OnDestroy {
       this.snackBar.open('No telemetry data available to export', 'Dismiss', { duration: 2500 });
       return;
     }
-    // XML Spreadsheet format supported universally by MS Excel & LibreOffice
-    let xml = `<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
- <Worksheet ss:Name="Telemetry">
-  <Table>
-   <Row>
-    <Cell><Data ss:Type="String">Metric</Data></Cell>
-    <Cell><Data ss:Type="String">Value</Data></Cell>
-    <Cell><Data ss:Type="String">Unit</Data></Cell>
-    <Cell><Data ss:Type="String">Status</Data></Cell>
-    <Cell><Data ss:Type="String">Timestamp</Data></Cell>
-   </Row>
-   <Row>
-    <Cell><Data ss:Type="String">Velocity</Data></Cell>
-    <Cell><Data ss:Type="Number">${this.liveTelemetry.velocity.value}</Data></Cell>
-    <Cell><Data ss:Type="String">${this.liveTelemetry.velocity.unit}</Data></Cell>
-    <Cell><Data ss:Type="String">${this.getVelocityStatus().label}</Data></Cell>
-    <Cell><Data ss:Type="String">${this.liveTelemetry.timestamp}</Data></Cell>
-   </Row>
-   <Row>
-    <Cell><Data ss:Type="String">Pressure</Data></Cell>
-    <Cell><Data ss:Type="Number">${this.liveTelemetry.pressure.value}</Data></Cell>
-    <Cell><Data ss:Type="String">${this.liveTelemetry.pressure.unit}</Data></Cell>
-    <Cell><Data ss:Type="String">${this.getPressureStatus().label}</Data></Cell>
-    <Cell><Data ss:Type="String">${this.liveTelemetry.timestamp}</Data></Cell>
-   </Row>
-   <Row>
-    <Cell><Data ss:Type="String">Temperature</Data></Cell>
-    <Cell><Data ss:Type="Number">${this.liveTelemetry.temperature.value}</Data></Cell>
-    <Cell><Data ss:Type="String">${this.liveTelemetry.temperature.unit}</Data></Cell>
-    <Cell><Data ss:Type="String">${this.getTempStatus().label}</Data></Cell>
-    <Cell><Data ss:Type="String">${this.liveTelemetry.timestamp}</Data></Cell>
-   </Row>
-  </Table>
- </Worksheet>
-</Workbook>`;
-
-    const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `telemetry_data_${Date.now()}.xls`;
-    link.click();
-    window.URL.revokeObjectURL(url);
-    this.snackBar.open('Excel report generated and downloaded', 'Dismiss', { duration: 2500 });
-  }
-
-  public setFilter(status: EquipmentFilter): void {
-    this.currentFilter = status;
-    this.applyFilter();
-  }
-
-  public onSearchChange(): void {
-    this.applyFilter();
-  }
-
-  private applyFilter(): void {
-    let list = this.allEquipment;
-
-    if (this.currentFilter !== 'ALL') {
-      list = list.filter(item => item.status === this.currentFilter);
-    }
-
-    if (this.searchQuery.trim()) {
-      const q = this.searchQuery.toLowerCase();
-      list = list.filter(
-        item =>
-          item.name.toLowerCase().includes(q) ||
-          item.modelNumber.toLowerCase().includes(q) ||
-          item.id.toLowerCase().includes(q) ||
-          item.category.toLowerCase().includes(q)
-      );
-    }
-
-    this.filteredEquipment = list;
-  }
-
-  public openCreateDialog(): void {
-    const ref = this.dialog.open(EquipmentDialogComponent, {
-      width: '560px',
-      data: null
-    });
-
-    ref.afterClosed().subscribe(result => {
-      if (result) {
-        this.equipmentService.addEquipment(result);
-        this.snackBar.open(`Equipment "${result.name}" created successfully!`, 'Dismiss', {
-          duration: 3500
-        });
-      }
-    });
-  }
-
-  public openEditDialog(item: Equipment): void {
-    const ref = this.dialog.open(EquipmentDialogComponent, {
-      width: '560px',
-      data: item
-    });
-
-    ref.afterClosed().subscribe(result => {
-      if (result) {
-        this.equipmentService.updateEquipment({ ...result, id: item.id });
-        this.snackBar.open(`Asset "${item.id}" updated successfully!`, 'Dismiss', {
-          duration: 3500
-        });
-      }
-    });
-  }
-
-  public deleteItem(item: Equipment): void {
-    if (confirm(`Are you sure you want to delete ${item.name} (${item.id})?`)) {
-      this.equipmentService.deleteEquipment(item.id);
-      this.snackBar.open(`Asset ${item.id} removed.`, 'Dismiss', {
-        duration: 3500
-      });
-    }
-  }
-
-  public resetMockData(): void {
-    this.equipmentService.resetToDefault();
-    this.snackBar.open('Dataset reset to original factory mock state.', 'Dismiss', {
-      duration: 3000
-    });
-  }
-
-  public getStatusClass(status: string): string {
-    switch (status) {
-      case 'Operational':
-        return 'status-operational';
-      case 'Maintenance Due':
-        return 'status-maintenance';
-      case 'Standby':
-        return 'status-standby';
-      case 'Offline':
-        return 'status-offline';
-      default:
-        return '';
-    }
+    const rows = this.exportService.generateExportRows(
+      this.liveTelemetry,
+      this.velocityUnit,
+      this.pressureUnit,
+      this.tempUnit
+    );
+    this.exportService.exportExcelXml(rows, `telemetry_export_${Date.now()}.xlsx`);
+    this.snackBar.open(`Exported ${rows.length} telemetry samples to Excel (.xlsx)`, 'Dismiss', { duration: 2500 });
   }
 }
