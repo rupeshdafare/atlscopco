@@ -1,325 +1,891 @@
-<div class="app-layout">
-  <!-- Desktop Header Toolbar -->
-  <mat-toolbar color="primary" class="desktop-toolbar">
-    <div class="toolbar-brand">
-      <mat-icon class="brand-icon">precision_manufacturing</mat-icon>
-      <div class="brand-info">
-        <span class="brand-title">Atlas Copco &bull; Industrial Telemetry &amp; Asset Suite</span>
-        <span class="brand-sub">Desktop Workstation Monitor &amp; Live Server Bridge</span>
+<div class="embedded-app-shell" [class.dark-theme]="isDarkMode" [class.light-mode]="!isDarkMode">
+  
+  <!-- TOP NAVIGATION HEADER -->
+  <header class="top-header">
+    <div class="header-left">
+      <div class="logo-box">
+        <mat-icon class="app-logo-icon">insights</mat-icon>
       </div>
+      <h1 class="header-title">Embedded Controller Monitoring</h1>
     </div>
 
-    <span class="toolbar-spacer"></span>
-
-    <!-- Backend Connection Indicator -->
-    <div class="backend-status-pill" [class.connected]="backendConnected" [class.disconnected]="!backendConnected">
-      <span class="pulse-indicator"></span>
-      <mat-icon class="status-icon">{{ backendConnected ? 'cloud_done' : 'cloud_off' }}</mat-icon>
-      <div class="backend-text">
-        <span class="status-title">{{ backendConnected ? 'Spring Boot API Live' : 'Backend Disconnected' }}</span>
-        <span class="status-sub" *ngIf="backendConnected">Port 8080 &bull; {{ lastTelemetryUpdate }}</span>
-        <span class="status-sub" *ngIf="!backendConnected">Waiting for localhost:8080</span>
-      </div>
-    </div>
-
-    <!-- Electron Runtime Badge -->
-    <div class="runtime-badge" [class.desktop-active]="isDesktop">
-      <mat-icon>{{ isDesktop ? 'desktop_windows' : 'language' }}</mat-icon>
-      <span>{{ isDesktop ? 'Desktop App' : 'Web Client' }}</span>
-      <span class="platform-chip" *ngIf="isDesktop">({{ platformDetails.platform }})</span>
-    </div>
-
-    <button mat-icon-button (click)="resetMockData()" matTooltip="Reset In-Memory Data to Defaults">
-      <mat-icon>restart_alt</mat-icon>
-    </button>
-  </mat-toolbar>
-
-  <!-- Main Container -->
-  <main class="main-content">
-
-    <!-- LIVE TELEMETRY CARDS (From Spring Boot Server) -->
-    <div class="telemetry-section-header">
-      <div class="section-title">
-        <mat-icon class="section-icon">sensors</mat-icon>
-        <h2>Live Machine Telemetry (Spring Boot Backend: /api/dashboard)</h2>
-      </div>
-      <span class="live-tag" *ngIf="backendConnected">REAL-TIME STREAMING (1.5s POLLING)</span>
-    </div>
-
-    <section class="telemetry-grid" *ngIf="liveTelemetry">
-      <!-- Velocity Card -->
-      <mat-card class="telemetry-card velocity-card" appearance="outlined">
-        <mat-card-header>
-          <mat-icon mat-card-avatar class="telemetry-avatar velocity-color">speed</mat-icon>
-          <mat-card-title>Vibration / Velocity</mat-card-title>
-          <mat-card-subtitle>Active Sensor Stream</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content class="telemetry-content">
-          <div class="current-metric">
-            <span class="telemetry-num">{{ liveTelemetry.velocity.value | number:'1.1-2' }}</span>
-            <span class="telemetry-unit">{{ liveTelemetry.velocity.unit }}</span>
-          </div>
-          <div class="history-stats">
-            <span>Recent Samples: {{ liveTelemetry.velocity.history.length }}</span>
-            <span class="trend-badge">Active</span>
-          </div>
-        </mat-card-content>
-      </mat-card>
-
-      <!-- Pressure Card -->
-      <mat-card class="telemetry-card pressure-card" appearance="outlined">
-        <mat-card-header>
-          <mat-icon mat-card-avatar class="telemetry-avatar pressure-color">compress</mat-icon>
-          <mat-card-title>Chamber Pressure</mat-card-title>
-          <mat-card-subtitle>Pneumatic Core</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content class="telemetry-content">
-          <div class="current-metric">
-            <span class="telemetry-num">{{ liveTelemetry.pressure.value | number:'1.1-1' }}</span>
-            <span class="telemetry-unit">{{ liveTelemetry.pressure.unit }}</span>
-          </div>
-          <div class="history-stats">
-            <span>Recent Samples: {{ liveTelemetry.pressure.history.length }}</span>
-            <span class="trend-badge">Active</span>
-          </div>
-        </mat-card-content>
-      </mat-card>
-
-      <!-- Temperature Card -->
-      <mat-card class="telemetry-card temp-live-card" appearance="outlined">
-        <mat-card-header>
-          <mat-icon mat-card-avatar class="telemetry-avatar temp-color">device_thermostat</mat-icon>
-          <mat-card-title>Motor Temperature</mat-card-title>
-          <mat-card-subtitle>Thermal Sensor</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content class="telemetry-content">
-          <div class="current-metric">
-            <span class="telemetry-num">{{ liveTelemetry.temperature.value | number:'1.1-2' }}</span>
-            <span class="telemetry-unit">{{ liveTelemetry.temperature.unit }}</span>
-          </div>
-          <div class="history-stats">
-            <span>Recent Samples: {{ liveTelemetry.temperature.history.length }}</span>
-            <span class="trend-badge" [class.warning-trend]="liveTelemetry.temperature.value > 40">
-              {{ liveTelemetry.temperature.value > 40 ? 'Warm' : 'Optimal' }}
-            </span>
-          </div>
-        </mat-card-content>
-      </mat-card>
-    </section>
-
-    <!-- Fallback if backend is connecting -->
-    <div *ngIf="!liveTelemetry" class="telemetry-connecting-banner">
-      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-      <div class="banner-text">
-        <mat-icon>sync</mat-icon>
-        <span>Connecting to Spring Boot Telemetry API at http://localhost:8080/api/dashboard...</span>
-      </div>
-    </div>
-
-    <!-- ASSET MANAGEMENT OVERVIEW (In-Memory Fleet) -->
-    <section class="metrics-grid">
-      <mat-card class="metric-card total-card" appearance="outlined">
-        <mat-card-content>
-          <div class="metric-icon"><mat-icon>inventory_2</mat-icon></div>
-          <div class="metric-details">
-            <span class="metric-label">Total Monitored Fleet</span>
-            <span class="metric-value">{{ summary.total }}</span>
-          </div>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card class="metric-card operational-card" appearance="outlined">
-        <mat-card-content>
-          <div class="metric-icon"><mat-icon>check_circle</mat-icon></div>
-          <div class="metric-details">
-            <span class="metric-label">Operational (Active)</span>
-            <span class="metric-value">{{ summary.operational }}</span>
-          </div>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card class="metric-card maintenance-card" appearance="outlined">
-        <mat-card-content>
-          <div class="metric-icon"><mat-icon>build_circle</mat-icon></div>
-          <div class="metric-details">
-            <span class="metric-label">Maintenance Due</span>
-            <span class="metric-value">{{ summary.maintenanceDue }}</span>
-          </div>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card class="metric-card fleet-temp-card" appearance="outlined">
-        <mat-card-content>
-          <div class="metric-icon"><mat-icon>thermostat</mat-icon></div>
-          <div class="metric-details">
-            <span class="metric-label">Avg Fleet Temp</span>
-            <span class="metric-value">{{ summary.avgTemperature }}°C</span>
-          </div>
-        </mat-card-content>
-      </mat-card>
-    </section>
-
-    <!-- Content Workspace -->
-    <mat-card class="workspace-card" appearance="outlined">
-      <!-- Toolbar Controls -->
-      <div class="workspace-actions">
-        <!-- Search Input -->
-        <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic">
-          <mat-icon matPrefix>search</mat-icon>
-          <input
-            matInput
-            [(ngModel)]="searchQuery"
-            (ngModelChange)="onSearchChange()"
-            placeholder="Search equipment by ID, name, or model..."
-          >
-          <button
-            *ngIf="searchQuery"
-            matSuffix
-            mat-icon-button
-            aria-label="Clear"
-            (click)="searchQuery = ''; onSearchChange()"
-          >
-            <mat-icon>close</mat-icon>
-          </button>
-        </mat-form-field>
-
-        <!-- Filter Chips -->
-        <div class="status-filters">
-          <button
-            mat-stroked-button
-            [class.active-filter]="currentFilter === 'ALL'"
-            (click)="setFilter('ALL')"
-          >
-            All ({{ allEquipment.length }})
-          </button>
-          <button
-            mat-stroked-button
-            [class.active-filter]="currentFilter === 'Operational'"
-            (click)="setFilter('Operational')"
-          >
-            Operational
-          </button>
-          <button
-            mat-stroked-button
-            [class.active-filter]="currentFilter === 'Maintenance Due'"
-            (click)="setFilter('Maintenance Due')"
-          >
-            Maintenance Due
-          </button>
-          <button
-            mat-stroked-button
-            [class.active-filter]="currentFilter === 'Offline'"
-            (click)="setFilter('Offline')"
-          >
-            Offline
-          </button>
-          <button
-            mat-stroked-button
-            [class.active-filter]="currentFilter === 'Standby'"
-            (click)="setFilter('Standby')"
-          >
-            Standby
-          </button>
+    <div class="header-center-info">
+      <!-- Connection Status -->
+      <div class="connection-status" [class.online]="backendConnected" [class.offline]="!backendConnected">
+        <span class="status-indicator-dot"></span>
+        <div class="connection-details">
+          <span class="connection-state">{{ backendConnected ? 'Connected' : 'Disconnected' }}</span>
+          <span class="connection-endpoint">Backend: http://localhost:8080</span>
         </div>
+      </div>
 
-        <span class="workspace-spacer"></span>
+      <!-- Last Update Timestamp -->
+      <div class="update-clock">
+        <mat-icon class="clock-icon">schedule</mat-icon>
+        <div class="clock-details">
+          <span class="clock-label">Last Update</span>
+          <span class="clock-time">{{ lastUpdateFull || 'Waiting for stream...' }}</span>
+        </div>
+      </div>
+    </div>
 
-        <!-- Add Equipment CTA -->
-        <button mat-flat-button color="primary" class="add-btn" (click)="openCreateDialog()">
-          <mat-icon>add</mat-icon>
-          Register Equipment
+    <div class="header-right-actions">
+      <!-- Dark / Light Theme Toggle -->
+      <div class="theme-switch" (click)="toggleTheme()" [matTooltip]="isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme'">
+        <button mat-icon-button class="theme-btn" [class.active-theme]="!isDarkMode">
+          <mat-icon>light_mode</mat-icon>
+        </button>
+        <button mat-icon-button class="theme-btn" [class.active-theme]="isDarkMode">
+          <mat-icon>dark_mode</mat-icon>
         </button>
       </div>
 
-      <!-- Equipment Table -->
-      <div class="table-container">
-        <table mat-table [dataSource]="filteredEquipment" class="mat-elevation-z0 desktop-table">
-          <!-- Asset ID -->
-          <ng-container matColumnDef="id">
-            <th mat-header-cell *matHeaderCellDef> Asset ID </th>
-            <td mat-cell *matCellDef="let element">
-              <span class="id-tag">{{ element.id }}</span>
-            </td>
-          </ng-container>
+      <!-- Refresh Button -->
+      <button class="nav-btn btn-refresh" (click)="refreshTelemetry()" matTooltip="Fetch fresh telemetry payload">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
 
-          <!-- Equipment Name & Model -->
-          <ng-container matColumnDef="name">
-            <th mat-header-cell *matHeaderCellDef> Machine &amp; Model </th>
-            <td mat-cell *matCellDef="let element">
-              <div class="item-name">{{ element.name }}</div>
-              <div class="item-model">{{ element.modelNumber }}</div>
-            </td>
-          </ng-container>
+      <!-- CSV Export -->
+      <button class="nav-btn btn-export-csv" (click)="exportCsv()" matTooltip="Export as comma-separated values (.csv)">
+        <mat-icon>file_download</mat-icon>
+        <span>CSV Export</span>
+      </button>
 
-          <!-- Category -->
-          <ng-container matColumnDef="category">
-            <th mat-header-cell *matHeaderCellDef> Category </th>
-            <td mat-cell *matCellDef="let element">
-              <span class="category-chip">{{ element.category }}</span>
-            </td>
-          </ng-container>
+      <!-- Excel Export -->
+      <button class="nav-btn btn-export-excel" (click)="exportExcel()" matTooltip="Export as Excel spreadsheet (.xls)">
+        <mat-icon>table_view</mat-icon>
+        <span>Excel Export</span>
+      </button>
+    </div>
+  </header>
 
-          <!-- Pressure -->
-          <ng-container matColumnDef="operatingPressureBar">
-            <th mat-header-cell *matHeaderCellDef> Pressure </th>
-            <td mat-cell *matCellDef="let element">
-              <strong>{{ element.operatingPressureBar }}</strong> bar
-            </td>
-          </ng-container>
+  <!-- BODY CONTENT WITH SIDEBAR -->
+  <div class="main-body-container">
+    
+    <!-- LEFT SIDEBAR -->
+    <aside class="sidebar-nav">
+      <nav class="nav-list">
+        <button class="sidebar-item" [class.active]="activeTab === 'dashboard'" (click)="activeTab = 'dashboard'">
+          <mat-icon class="sidebar-icon">home</mat-icon>
+          <span>Dashboard</span>
+        </button>
 
-          <!-- Temperature -->
-          <ng-container matColumnDef="temperatureCelsius">
-            <th mat-header-cell *matHeaderCellDef> Core Temp </th>
-            <td mat-cell *matCellDef="let element">
-              <span [class.temp-warning]="element.temperatureCelsius > 75">
-                {{ element.temperatureCelsius }}°C
-              </span>
-            </td>
-          </ng-container>
+        <button class="sidebar-item" [class.active]="activeTab === 'settings'" (click)="activeTab = 'settings'">
+          <mat-icon class="sidebar-icon">settings</mat-icon>
+          <span>Settings</span>
+        </button>
 
-          <!-- Runtime -->
-          <ng-container matColumnDef="runtimeHours">
-            <th mat-header-cell *matHeaderCellDef> Total Hours </th>
-            <td mat-cell *matCellDef="let element">
-              {{ element.runtimeHours | number }} hrs
-            </td>
-          </ng-container>
+        <button class="sidebar-item" [class.active]="activeTab === 'about'" (click)="activeTab = 'about'">
+          <mat-icon class="sidebar-icon">info</mat-icon>
+          <span>About</span>
+        </button>
+      </nav>
 
-          <!-- Status -->
-          <ng-container matColumnDef="status">
-            <th mat-header-cell *matHeaderCellDef> Status </th>
-            <td mat-cell *matCellDef="let element">
-              <span class="status-badge" [ngClass]="getStatusClass(element.status)">
-                <span class="status-dot"></span>
-                {{ element.status }}
-              </span>
-            </td>
-          </ng-container>
-
-          <!-- Actions -->
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef class="actions-header"> Actions </th>
-            <td mat-cell *matCellDef="let element" class="actions-cell">
-              <button mat-icon-button (click)="openEditDialog(element)" matTooltip="Edit Asset">
-                <mat-icon color="primary">edit</mat-icon>
-              </button>
-              <button mat-icon-button (click)="deleteItem(element)" matTooltip="Delete Asset">
-                <mat-icon color="warn">delete</mat-icon>
-              </button>
-            </td>
-          </ng-container>
-
-          <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="element-row"></tr>
-
-          <tr class="mat-row" *matNoDataRow>
-            <td class="mat-cell empty-table" colspan="8">
-              <mat-icon class="empty-icon">search_off</mat-icon>
-              <div>No matching industrial equipment found.</div>
-            </td>
-          </tr>
-        </table>
+      <!-- Bottom Platform Info (Electron Desktop / Browser) -->
+      <div class="sidebar-footer">
+        <div class="platform-indicator">
+          <mat-icon class="footer-icon">{{ isDesktop ? 'desktop_windows' : 'language' }}</mat-icon>
+          <div class="footer-meta">
+            <span class="platform-name">{{ isDesktop ? 'Electron Desktop' : 'Web Browser' }}</span>
+            <span class="platform-ver">v{{ appVersion }}</span>
+          </div>
+        </div>
       </div>
-    </mat-card>
-  </main>
+    </aside>
+
+    <!-- MAIN SCROLLABLE DASHBOARD VIEW -->
+    <main class="dashboard-viewport">
+      
+      <!-- DASHBOARD TAB CONTENT -->
+      <div *ngIf="activeTab === 'dashboard'" class="tab-pane">
+
+        <!-- 1. SYSTEM STATUS BANNER -->
+        <section class="system-status-banner" [class.banner-alert]="!getOverallSystemStatus().isNormal">
+          <div class="status-left">
+            <div class="status-icon-circle" [class.circle-alert]="!getOverallSystemStatus().isNormal">
+              <mat-icon>{{ getOverallSystemStatus().isNormal ? 'check' : 'warning' }}</mat-icon>
+            </div>
+            <div class="status-copy">
+              <span class="status-kicker">System Status</span>
+              <h2 class="status-headline" [class.headline-alert]="!getOverallSystemStatus().isNormal">
+                {{ getOverallSystemStatus().title }}
+              </h2>
+              <p class="status-description">{{ getOverallSystemStatus().subtitle }}</p>
+            </div>
+          </div>
+
+          <div class="status-right-meta">
+            <div class="timestamp-box">
+              <mat-icon class="meta-icon">schedule</mat-icon>
+              <div>
+                <span class="meta-label">Latest Telemetry Update</span>
+                <span class="meta-val">{{ lastUpdateFull || 'Connecting to backend...' }}</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. TELEMETRY 3-CARD CARDS (Velocity, Pressure, Temperature) -->
+        <section class="telemetry-cards-row">
+
+          <!-- Velocity Card -->
+          <div class="metric-panel velocity-panel">
+            <div class="card-top-bar">
+              <div class="metric-title-group">
+                <mat-icon class="metric-type-icon velocity-accent">speed</mat-icon>
+                <span class="metric-name">Velocity</span>
+              </div>
+              <span class="badge" [ngClass]="getVelocityStatus().class">
+                <span class="badge-dot"></span>
+                {{ getVelocityStatus().label }}
+              </span>
+            </div>
+
+            <!-- Gauge & Details -->
+            <div class="gauge-and-specs">
+              <!-- SVG Semi-Circular Radial Gauge -->
+              <div class="gauge-container">
+                <svg class="semi-gauge" viewBox="0 0 160 95">
+                  <!-- Background Track Arc -->
+                  <path
+                    d="M 15 85 A 65 65 0 0 1 145 85"
+                    fill="none"
+                    class="gauge-bg-arc"
+                    stroke-width="12"
+                    stroke-linecap="round"
+                  />
+                  <!-- Colored Filled Arc -->
+                  <path
+                    d="M 15 85 A 65 65 0 0 1 145 85"
+                    fill="none"
+                    class="gauge-progress-arc velocity-stroke"
+                    stroke-width="12"
+                    stroke-linecap="round"
+                    stroke-dasharray="204.2"
+                    [attr.stroke-dashoffset]="getGaugeOffset(liveTelemetry?.velocity?.value ?? 0, 0, 300)"
+                  />
+                </svg>
+                <div class="gauge-center-text">
+                  <span class="gauge-big-num">{{ getConvertedVelocity() | number:'1.1-1' }}</span>
+                  <span class="gauge-unit">{{ velocityUnit }}</span>
+                </div>
+                <div class="gauge-range-labels">
+                  <span>0</span>
+                  <span>300</span>
+                </div>
+              </div>
+
+              <!-- Specs & Selector Column -->
+              <div class="metric-specs-col">
+                <div class="unit-selector-wrapper">
+                  <span class="spec-label">Unit</span>
+                  <select [(ngModel)]="velocityUnit" class="custom-unit-select">
+                    <option value="cm/s">cm/s</option>
+                    <option value="mm/s">mm/s</option>
+                    <option value="in/s">in/s</option>
+                  </select>
+                </div>
+
+                <div class="spec-row">
+                  <div class="bullet-tag bullet-blue"></div>
+                  <span class="spec-key">Range</span>
+                  <span class="spec-val">0 - 300 cm/s</span>
+                </div>
+                <div class="spec-row">
+                  <div class="bullet-tag bullet-yellow"></div>
+                  <span class="spec-key">Warning</span>
+                  <span class="spec-val">200 - 250 cm/s</span>
+                </div>
+                <div class="spec-row">
+                  <div class="bullet-tag bullet-red"></div>
+                  <span class="spec-key">Critical</span>
+                  <span class="spec-val">&gt; 250 cm/s</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Timestamp note -->
+            <div class="card-timestamp">
+              <mat-icon>schedule</mat-icon>
+              <span>Last Updated: {{ lastUpdateFull || 'Waiting...' }}</span>
+            </div>
+
+            <!-- Sparkline Trend Chart -->
+            <div class="chart-section">
+              <div class="chart-header">
+                <div class="chart-title">
+                  <mat-icon>trending_up</mat-icon>
+                  <span>Velocity Trend</span>
+                </div>
+                <div class="time-range-toggles">
+                  <button [class.active-range]="velocityTimeRange === '1H'" (click)="velocityTimeRange = '1H'">1H</button>
+                  <button [class.active-range]="velocityTimeRange === '6H'" (click)="velocityTimeRange = '6H'">6H</button>
+                  <button [class.active-range]="velocityTimeRange === '24H'" (click)="velocityTimeRange = '24H'">24H</button>
+                </div>
+              </div>
+
+              <div class="trend-canvas-box">
+                <svg class="trend-svg" viewBox="0 0 300 100" preserveAspectRatio="none">
+                  <!-- Area fill gradient -->
+                  <defs>
+                    <linearGradient id="velocityGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/>
+                      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0"/>
+                    </linearGradient>
+                  </defs>
+                  <!-- Background grid lines -->
+                  <line x1="0" y1="20" x2="300" y2="20" class="svg-grid-line"/>
+                  <line x1="0" y1="50" x2="300" y2="50" class="svg-grid-line"/>
+                  <line x1="0" y1="80" x2="300" y2="80" class="svg-grid-line"/>
+
+                  <!-- Trend Line & Area -->
+                  <polygon
+                    [attr.points]="getSparklineArea(liveTelemetry?.velocity?.history, 0, 300)"
+                    fill="url(#velocityGrad)"
+                  />
+                  <polyline
+                    [attr.points]="getSparklinePoints(liveTelemetry?.velocity?.history, 0, 300)"
+                    fill="none"
+                    stroke="#38bdf8"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <!-- Current endpoint dot -->
+                  <circle cx="295" cy="40" r="4" fill="#38bdf8" stroke="#ffffff" stroke-width="1.5" />
+                </svg>
+
+                <!-- Tooltip Overlay Flag -->
+                <div class="floating-data-tag">
+                  <span class="flag-time">{{ lastTelemetryUpdate || '15:10:05' }}</span>
+                  <span class="flag-val">{{ liveTelemetry?.velocity?.value ?? 185.4 | number:'1.1-1' }} cm/s</span>
+                </div>
+              </div>
+
+              <div class="chart-x-labels">
+                <span>15:00</span>
+                <span>15:02</span>
+                <span>15:04</span>
+                <span>15:06</span>
+                <span>15:08</span>
+                <span>15:10</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pressure Card -->
+          <div class="metric-panel pressure-panel">
+            <div class="card-top-bar">
+              <div class="metric-title-group">
+                <mat-icon class="metric-type-icon pressure-accent">compress</mat-icon>
+                <span class="metric-name">Pressure</span>
+              </div>
+              <span class="badge" [ngClass]="getPressureStatus().class">
+                <span class="badge-dot"></span>
+                {{ getPressureStatus().label }}
+              </span>
+            </div>
+
+            <!-- Gauge & Details -->
+            <div class="gauge-and-specs">
+              <!-- SVG Radial Gauge -->
+              <div class="gauge-container">
+                <svg class="semi-gauge" viewBox="0 0 160 95">
+                  <path
+                    d="M 15 85 A 65 65 0 0 1 145 85"
+                    fill="none"
+                    class="gauge-bg-arc"
+                    stroke-width="12"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M 15 85 A 65 65 0 0 1 145 85"
+                    fill="none"
+                    class="gauge-progress-arc pressure-stroke"
+                    stroke-width="12"
+                    stroke-linecap="round"
+                    stroke-dasharray="204.2"
+                    [attr.stroke-dashoffset]="getGaugeOffset(liveTelemetry?.pressure?.value ?? 1012, 900, 1100)"
+                  />
+                </svg>
+                <div class="gauge-center-text">
+                  <span class="gauge-big-num">{{ getConvertedPressure() | number:'1.0-1' }}</span>
+                  <span class="gauge-unit">{{ pressureUnit }}</span>
+                </div>
+                <div class="gauge-range-labels">
+                  <span>900</span>
+                  <span>1100</span>
+                </div>
+              </div>
+
+              <!-- Specs & Selector Column -->
+              <div class="metric-specs-col">
+                <div class="unit-selector-wrapper">
+                  <span class="spec-label">Unit</span>
+                  <select [(ngModel)]="pressureUnit" class="custom-unit-select">
+                    <option value="mbar">mbar</option>
+                    <option value="bar">bar</option>
+                    <option value="psi">psi</option>
+                  </select>
+                </div>
+
+                <div class="spec-row">
+                  <div class="bullet-tag bullet-blue"></div>
+                  <span class="spec-key">Range</span>
+                  <span class="spec-val">950 - 1050 mbar</span>
+                </div>
+                <div class="spec-row">
+                  <div class="bullet-tag bullet-yellow"></div>
+                  <span class="spec-key">Warning</span>
+                  <span class="spec-val">900-950 / 1050-1100</span>
+                </div>
+                <div class="spec-row">
+                  <div class="bullet-tag bullet-red"></div>
+                  <span class="spec-key">Critical</span>
+                  <span class="spec-val">&lt; 900 / &gt; 1100</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Timestamp note -->
+            <div class="card-timestamp">
+              <mat-icon>schedule</mat-icon>
+              <span>Last Updated: {{ lastUpdateFull || 'Waiting...' }}</span>
+            </div>
+
+            <!-- Sparkline Trend Chart -->
+            <div class="chart-section">
+              <div class="chart-header">
+                <div class="chart-title">
+                  <mat-icon>trending_up</mat-icon>
+                  <span>Pressure Trend</span>
+                </div>
+                <div class="time-range-toggles">
+                  <button [class.active-range]="pressureTimeRange === '1H'" (click)="pressureTimeRange = '1H'">1H</button>
+                  <button [class.active-range]="pressureTimeRange === '6H'" (click)="pressureTimeRange = '6H'">6H</button>
+                  <button [class.active-range]="pressureTimeRange === '24H'" (click)="pressureTimeRange = '24H'">24H</button>
+                </div>
+              </div>
+
+              <div class="trend-canvas-box">
+                <svg class="trend-svg" viewBox="0 0 300 100" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="pressureGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#10b981" stop-opacity="0.35"/>
+                      <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
+                    </linearGradient>
+                  </defs>
+                  <line x1="0" y1="20" x2="300" y2="20" class="svg-grid-line"/>
+                  <line x1="0" y1="50" x2="300" y2="50" class="svg-grid-line"/>
+                  <line x1="0" y1="80" x2="300" y2="80" class="svg-grid-line"/>
+
+                  <polygon
+                    [attr.points]="getSparklineArea(liveTelemetry?.pressure?.history, 900, 1100)"
+                    fill="url(#pressureGrad)"
+                  />
+                  <polyline
+                    [attr.points]="getSparklinePoints(liveTelemetry?.pressure?.history, 900, 1100)"
+                    fill="none"
+                    stroke="#10b981"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <circle cx="295" cy="35" r="4" fill="#10b981" stroke="#ffffff" stroke-width="1.5" />
+                </svg>
+
+                <div class="floating-data-tag">
+                  <span class="flag-time">{{ lastTelemetryUpdate || '15:10:05' }}</span>
+                  <span class="flag-val">{{ liveTelemetry?.pressure?.value ?? 1012 | number:'1.0-0' }} mbar</span>
+                </div>
+              </div>
+
+              <div class="chart-x-labels">
+                <span>15:00</span>
+                <span>15:02</span>
+                <span>15:04</span>
+                <span>15:06</span>
+                <span>15:08</span>
+                <span>15:10</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Temperature Card -->
+          <div class="metric-panel temp-panel">
+            <div class="card-top-bar">
+              <div class="metric-title-group">
+                <mat-icon class="metric-type-icon temp-accent">device_thermostat</mat-icon>
+                <span class="metric-name">Temperature</span>
+              </div>
+              <span class="badge" [ngClass]="getTempStatus().class">
+                <span class="badge-dot"></span>
+                {{ getTempStatus().label }}
+              </span>
+            </div>
+
+            <!-- Gauge & Details -->
+            <div class="gauge-and-specs">
+              <!-- SVG Radial Gauge -->
+              <div class="gauge-container">
+                <svg class="semi-gauge" viewBox="0 0 160 95">
+                  <path
+                    d="M 15 85 A 65 65 0 0 1 145 85"
+                    fill="none"
+                    class="gauge-bg-arc"
+                    stroke-width="12"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M 15 85 A 65 65 0 0 1 145 85"
+                    fill="none"
+                    class="gauge-progress-arc temp-stroke"
+                    stroke-width="12"
+                    stroke-linecap="round"
+                    stroke-dasharray="204.2"
+                    [attr.stroke-dashoffset]="getGaugeOffset(liveTelemetry?.temperature?.value ?? 42.6, 20, 50)"
+                  />
+                </svg>
+                <div class="gauge-center-text">
+                  <span class="gauge-big-num">{{ getConvertedTemp() | number:'1.1-1' }}</span>
+                  <span class="gauge-unit">{{ tempUnit }}</span>
+                </div>
+                <div class="gauge-range-labels">
+                  <span>20</span>
+                  <span>50</span>
+                </div>
+              </div>
+
+              <!-- Specs & Selector Column -->
+              <div class="metric-specs-col">
+                <div class="unit-selector-wrapper">
+                  <span class="spec-label">Unit</span>
+                  <select [(ngModel)]="tempUnit" class="custom-unit-select">
+                    <option value="°C">°C</option>
+                    <option value="°F">°F</option>
+                    <option value="K">K</option>
+                  </select>
+                </div>
+
+                <div class="spec-row">
+                  <div class="bullet-tag bullet-blue"></div>
+                  <span class="spec-key">Range</span>
+                  <span class="spec-val">20 - 40 °C</span>
+                </div>
+                <div class="spec-row">
+                  <div class="bullet-tag bullet-yellow"></div>
+                  <span class="spec-key">Warning</span>
+                  <span class="spec-val">40 - 50 °C</span>
+                </div>
+                <div class="spec-row">
+                  <div class="bullet-tag bullet-red"></div>
+                  <span class="spec-key">Critical</span>
+                  <span class="spec-val">&gt; 50 °C</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Timestamp note -->
+            <div class="card-timestamp">
+              <mat-icon>schedule</mat-icon>
+              <span>Last Updated: {{ lastUpdateFull || 'Waiting...' }}</span>
+            </div>
+
+            <!-- Sparkline Trend Chart -->
+            <div class="chart-section">
+              <div class="chart-header">
+                <div class="chart-title">
+                  <mat-icon>trending_up</mat-icon>
+                  <span>Temperature Trend</span>
+                </div>
+                <div class="time-range-toggles">
+                  <button [class.active-range]="tempTimeRange === '1H'" (click)="tempTimeRange = '1H'">1H</button>
+                  <button [class.active-range]="tempTimeRange === '6H'" (click)="tempTimeRange = '6H'">6H</button>
+                  <button [class.active-range]="tempTimeRange === '24H'" (click)="tempTimeRange = '24H'">24H</button>
+                </div>
+              </div>
+
+              <div class="trend-canvas-box">
+                <svg class="trend-svg" viewBox="0 0 300 100" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="tempGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.35"/>
+                      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.0"/>
+                    </linearGradient>
+                  </defs>
+                  <line x1="0" y1="20" x2="300" y2="20" class="svg-grid-line"/>
+                  <line x1="0" y1="50" x2="300" y2="50" class="svg-grid-line"/>
+                  <line x1="0" y1="80" x2="300" y2="80" class="svg-grid-line"/>
+
+                  <polygon
+                    [attr.points]="getSparklineArea(liveTelemetry?.temperature?.history, 20, 50)"
+                    fill="url(#tempGrad)"
+                  />
+                  <polyline
+                    [attr.points]="getSparklinePoints(liveTelemetry?.temperature?.history, 20, 50)"
+                    fill="none"
+                    stroke="#f59e0b"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <circle cx="295" cy="30" r="4" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5" />
+                </svg>
+
+                <div class="floating-data-tag">
+                  <span class="flag-time">{{ lastTelemetryUpdate || '15:10:05' }}</span>
+                  <span class="flag-val">{{ liveTelemetry?.temperature?.value ?? 42.6 | number:'1.1-1' }} °C</span>
+                </div>
+              </div>
+
+              <div class="chart-x-labels">
+                <span>15:00</span>
+                <span>15:02</span>
+                <span>15:04</span>
+                <span>15:06</span>
+                <span>15:08</span>
+                <span>15:10</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. BOTTOM SECTION: QUICK CONTROLS | RECENT DATA SUMMARY | EXPORT DATA -->
+        <section class="bottom-widgets-grid">
+          
+          <!-- Widget 1: Quick Controls -->
+          <div class="widget-box quick-controls-box">
+            <h3 class="widget-heading">Quick Controls</h3>
+            
+            <div class="controls-inputs">
+              <div class="unit-control-item">
+                <div class="item-label-row">
+                  <mat-icon class="ctrl-icon blue-txt">speed</mat-icon>
+                  <span>Velocity Unit</span>
+                </div>
+                <select [(ngModel)]="velocityUnit" class="custom-widget-select">
+                  <option value="cm/s">cm/s</option>
+                  <option value="mm/s">mm/s</option>
+                  <option value="in/s">in/s</option>
+                </select>
+              </div>
+
+              <div class="unit-control-item">
+                <div class="item-label-row">
+                  <mat-icon class="ctrl-icon green-txt">compress</mat-icon>
+                  <span>Pressure Unit</span>
+                </div>
+                <select [(ngModel)]="pressureUnit" class="custom-widget-select">
+                  <option value="mbar">mbar</option>
+                  <option value="bar">bar</option>
+                  <option value="psi">psi</option>
+                </select>
+              </div>
+
+              <div class="unit-control-item">
+                <div class="item-label-row">
+                  <mat-icon class="ctrl-icon orange-txt">device_thermostat</mat-icon>
+                  <span>Temperature Unit</span>
+                </div>
+                <select [(ngModel)]="tempUnit" class="custom-widget-select">
+                  <option value="°C">°C</option>
+                  <option value="°F">°F</option>
+                  <option value="K">K</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Widget 2: Recent Data Summary Table -->
+          <div class="widget-box summary-table-box">
+            <h3 class="widget-heading">Recent Data Summary</h3>
+
+            <table class="recent-summary-table">
+              <thead>
+                <tr>
+                  <th>Parameter</th>
+                  <th>Value</th>
+                  <th>Unit</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <span class="param-name">
+                      <span class="bullet-dot bullet-blue"></span>
+                      Velocity
+                    </span>
+                  </td>
+                  <td class="bold-val">{{ getConvertedVelocity() | number:'1.1-1' }}</td>
+                  <td class="dim-unit">{{ velocityUnit }}</td>
+                  <td>
+                    <span class="badge" [ngClass]="getVelocityStatus().class">
+                      <span class="badge-dot"></span>
+                      {{ getVelocityStatus().label }}
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="param-name">
+                      <span class="bullet-dot bullet-green"></span>
+                      Pressure
+                    </span>
+                  </td>
+                  <td class="bold-val">{{ getConvertedPressure() | number:'1.0-1' }}</td>
+                  <td class="dim-unit">{{ pressureUnit }}</td>
+                  <td>
+                    <span class="badge" [ngClass]="getPressureStatus().class">
+                      <span class="badge-dot"></span>
+                      {{ getPressureStatus().label }}
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="param-name">
+                      <span class="bullet-dot bullet-orange"></span>
+                      Temperature
+                    </span>
+                  </td>
+                  <td class="bold-val">{{ getConvertedTemp() | number:'1.1-1' }}</td>
+                  <td class="dim-unit">{{ tempUnit }}</td>
+                  <td>
+                    <span class="badge" [ngClass]="getTempStatus().class">
+                      <span class="badge-dot"></span>
+                      {{ getTempStatus().label }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Widget 3: Export Data -->
+          <div class="widget-box export-actions-box">
+            <h3 class="widget-heading">Export Data</h3>
+            <p class="export-description">
+              Download collected telemetry data in your preferred format.
+            </p>
+
+            <div class="export-btns-group">
+              <button class="export-btn blue-export" (click)="exportCsv()">
+                <mat-icon>file_download</mat-icon>
+                <span>CSV Export</span>
+              </button>
+
+              <button class="export-btn green-export" (click)="exportExcel()">
+                <mat-icon>table_view</mat-icon>
+                <span>Excel Export</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. INDUSTRIAL FLEET ASSETS TABLE (Preserving full CRUD capability) -->
+        <section class="fleet-assets-section">
+          <div class="fleet-header">
+            <div class="fleet-title-meta">
+              <mat-icon class="fleet-icon">precision_manufacturing</mat-icon>
+              <div>
+                <h3 class="fleet-title">Industrial Equipment &amp; Fleet Roster</h3>
+                <span class="fleet-subtitle">Manage registered field machinery, runtime logs &amp; scheduled maintenance</span>
+              </div>
+            </div>
+
+            <div class="fleet-actions">
+              <!-- Search Input -->
+              <div class="search-input-box">
+                <mat-icon class="search-icon">search</mat-icon>
+                <input
+                  type="text"
+                  [(ngModel)]="searchQuery"
+                  (ngModelChange)="onSearchChange()"
+                  placeholder="Search assets by ID, model, name..."
+                  class="search-input"
+                >
+                <button *ngIf="searchQuery" class="clear-btn" (click)="searchQuery = ''; onSearchChange()">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+
+              <!-- Register Equipment Button -->
+              <button class="register-asset-btn" (click)="openCreateDialog()">
+                <mat-icon>add</mat-icon>
+                <span>Register Equipment</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Status Filters Filter Pills -->
+          <div class="filter-pills-bar">
+            <button
+              class="pill-btn"
+              [class.pill-active]="currentFilter === 'ALL'"
+              (click)="setFilter('ALL')"
+            >
+              All ({{ allEquipment.length }})
+            </button>
+            <button
+              class="pill-btn"
+              [class.pill-active]="currentFilter === 'Operational'"
+              (click)="setFilter('Operational')"
+            >
+              Operational ({{ summary.operational }})
+            </button>
+            <button
+              class="pill-btn"
+              [class.pill-active]="currentFilter === 'Maintenance Due'"
+              (click)="setFilter('Maintenance Due')"
+            >
+              Maintenance Due ({{ summary.maintenanceDue }})
+            </button>
+            <button
+              class="pill-btn"
+              [class.pill-active]="currentFilter === 'Offline'"
+              (click)="setFilter('Offline')"
+            >
+              Offline ({{ summary.offline }})
+            </button>
+            <button
+              class="pill-btn"
+              [class.pill-active]="currentFilter === 'Standby'"
+              (click)="setFilter('Standby')"
+            >
+              Standby ({{ summary.standby }})
+            </button>
+          </div>
+
+          <!-- Table Container -->
+          <div class="assets-table-wrapper">
+            <table class="assets-table">
+              <thead>
+                <tr>
+                  <th>Asset ID</th>
+                  <th>Machine &amp; Model</th>
+                  <th>Category</th>
+                  <th>Pressure</th>
+                  <th>Core Temp</th>
+                  <th>Runtime Hours</th>
+                  <th>Status</th>
+                  <th class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of filteredEquipment" class="asset-row">
+                  <td><span class="id-badge">{{ item.id }}</span></td>
+                  <td>
+                    <div class="machine-name">{{ item.name }}</div>
+                    <div class="machine-model">{{ item.modelNumber }}</div>
+                  </td>
+                  <td><span class="category-tag">{{ item.category }}</span></td>
+                  <td class="bold-val">{{ item.operatingPressureBar }} bar</td>
+                  <td>
+                    <span [class.temp-warning-text]="item.temperatureCelsius > 75">
+                      {{ item.temperatureCelsius }}°C
+                    </span>
+                  </td>
+                  <td>{{ item.runtimeHours | number }} hrs</td>
+                  <td>
+                    <span class="badge" [ngClass]="getStatusClass(item.status)">
+                      <span class="badge-dot"></span>
+                      {{ item.status }}
+                    </span>
+                  </td>
+                  <td class="text-right">
+                    <button class="action-btn edit-btn" (click)="openEditDialog(item)" matTooltip="Edit Asset">
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    <button class="action-btn delete-btn" (click)="deleteItem(item)" matTooltip="Delete Asset">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </td>
+                </tr>
+
+                <tr *ngIf="filteredEquipment.length === 0">
+                  <td colspan="8" class="empty-state-cell">
+                    <mat-icon class="empty-icon">search_off</mat-icon>
+                    <p>No matching industrial machinery found.</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- SETTINGS TAB -->
+      <div *ngIf="activeTab === 'settings'" class="tab-pane settings-pane">
+        <div class="panel-box">
+          <h2 class="panel-title">System &amp; Connection Configuration</h2>
+          <p class="panel-desc">Configure API polling intervals, active backend URLs, and theme overrides.</p>
+          
+          <div class="setting-item">
+            <div class="setting-info">
+              <span class="setting-title">Appearance Mode</span>
+              <span class="setting-sub">Switch between high-contrast dark cockpit theme and clean light theme</span>
+            </div>
+            <button class="theme-toggle-btn" (click)="toggleTheme()">
+              {{ isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme' }}
+            </button>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <span class="setting-title">Telemetry Endpoint</span>
+              <span class="setting-sub">Target Spring Boot REST controller URI</span>
+            </div>
+            <code class="endpoint-code">http://localhost:8080/api/dashboard</code>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <span class="setting-title">Stream Status</span>
+              <span class="setting-sub">{{ backendConnected ? 'Active and streaming live frames every 1.5s' : 'Disconnected / retrying...' }}</span>
+            </div>
+            <span class="badge" [ngClass]="backendConnected ? 'status-normal' : 'status-critical'">
+              {{ backendConnected ? 'ONLINE' : 'OFFLINE' }}
+            </span>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <span class="setting-title">Reset Demo Dataset</span>
+              <span class="setting-sub">Restore all mock equipment records to initial factory values</span>
+            </div>
+            <button class="reset-btn" (click)="resetMockData()">
+              <mat-icon>restart_alt</mat-icon>
+              Reset Mock Data
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ABOUT TAB -->
+      <div *ngIf="activeTab === 'about'" class="tab-pane about-pane">
+        <div class="panel-box">
+          <h2 class="panel-title">Atlas Copco &bull; Industrial Telemetry Suite</h2>
+          <p class="panel-desc">Version {{ appVersion }} | Architecture: {{ platformDetails.arch || 'x64' }} ({{ platformDetails.platform }})</p>
+          <div class="about-grid">
+            <div class="about-card">
+              <h4>Angular &amp; Material 22</h4>
+              <p>Reactive UI stream powered by RxJS and modern Angular standalone architecture.</p>
+            </div>
+            <div class="about-card">
+              <h4>Spring Boot 3</h4>
+              <p>Embedded real-time telemetry generator broadcasting live sensor metrics over REST &amp; WebSocket.</p>
+            </div>
+            <div class="about-card">
+              <h4>Electron Integration</h4>
+              <p>Cross-platform industrial desktop workstation runtime wrapper for factory floor deployment.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
 </div>

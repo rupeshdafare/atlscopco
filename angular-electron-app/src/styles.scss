@@ -1,15 +1,73 @@
 /* Angular Material theme and global desktop layout styles */
 @use '@angular/material' as mat;
 
+:root {
+  /* Dark Theme (Default as requested by mock design) */
+  --bg-primary: #0b1329;
+  --bg-secondary: #0f172a;
+  --bg-card: #131d38;
+  --bg-card-hover: #182444;
+  --bg-sidebar: #090e20;
+  --border-color: #1e294f;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  
+  --accent-cyan: #06b6d4;
+  --accent-blue: #38bdf8;
+  --accent-green: #10b981;
+  --accent-yellow: #f59e0b;
+  --accent-red: #ef4444;
+  --accent-purple: #8b5cf6;
+  
+  --gauge-track: #1e294b;
+  --btn-blue: #0284c7;
+  --btn-blue-hover: #0369a1;
+  --btn-green: #059669;
+  --btn-green-hover: #047857;
+  --glass-header: rgba(11, 19, 41, 0.95);
+}
+
+body.light-theme {
+  --bg-primary: #f1f5f9;
+  --bg-secondary: #e2e8f0;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
+  --bg-sidebar: #0f172a;
+  --border-color: #cbd5e1;
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --text-dim: #64748b;
+  
+  --accent-cyan: #0891b2;
+  --accent-blue: #0284c7;
+  --accent-green: #059669;
+  --accent-yellow: #d97706;
+  --accent-red: #dc2626;
+  --accent-purple: #7c3aed;
+  
+  --gauge-track: #e2e8f0;
+  --btn-blue: #0284c7;
+  --btn-blue-hover: #0369a1;
+  --btn-green: #10b981;
+  --btn-green-hover: #059669;
+  --glass-header: rgba(255, 255, 255, 0.95);
+}
+
 html, body {
   height: 100%;
   margin: 0;
   padding: 0;
-  font-family: 'Roboto', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-  background-color: #f4f6fa;
-  color: #1e293b;
+  font-family: 'Inter', 'Roboto', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-main);
   overflow: hidden;
   user-select: none;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 * {
@@ -18,19 +76,20 @@ html, body {
 
 /* Custom scrollbar styling for modern desktop UI */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: var(--bg-secondary);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--border-color);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: var(--text-dim);
 }
+
