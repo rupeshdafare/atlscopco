@@ -9,18 +9,18 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background-color: #f8fafc;
+  background-color: #f1f5f9;
 }
 
 /* Header Toolbar */
 .desktop-toolbar {
   height: 64px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: linear-gradient(135deg, #091322 0%, #1e293b 100%);
   color: #f8fafc;
   display: flex;
   align-items: center;
   padding: 0 24px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   z-index: 10;
 }
 
@@ -43,13 +43,13 @@
 }
 
 .brand-title {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: 0.5px;
 }
 
 .brand-sub {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: #94a3b8;
 }
 
@@ -57,7 +57,67 @@
   flex: 1 1 auto;
 }
 
-/* Environment indicator badge */
+/* Backend status indicator */
+.backend-status-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 14px;
+  border-radius: 20px;
+  margin-right: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+
+  .status-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+
+  .backend-text {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .status-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .status-sub {
+    font-size: 0.65rem;
+    color: #94a3b8;
+  }
+
+  &.connected {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: #10b981;
+    color: #34d399;
+
+    .pulse-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+  }
+
+  &.disconnected {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: #ef4444;
+    color: #f87171;
+
+    .pulse-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #ef4444;
+    }
+  }
+}
+
+/* Desktop environment pill */
 .runtime-badge {
   display: flex;
   align-items: center;
@@ -66,7 +126,7 @@
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 20px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 500;
   margin-right: 12px;
   color: #94a3b8;
@@ -92,14 +152,152 @@
 /* Main Content Area */
 .main-content {
   flex: 1;
-  padding: 20px 24px;
+  padding: 18px 24px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 
-/* Overview Stat Cards */
+/* Telemetry Section Header */
+.telemetry-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .section-icon {
+      color: #0284c7;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+  }
+
+  .live-tag {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #0369a1;
+    background: #e0f2fe;
+    border: 1px solid #bae6fd;
+    padding: 3px 10px;
+    border-radius: 12px;
+    letter-spacing: 0.5px;
+  }
+}
+
+/* Telemetry Grid (Live Spring Boot Cards) */
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.telemetry-card {
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+
+  mat-card-header {
+    margin-bottom: 8px;
+  }
+
+  .telemetry-avatar {
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
+  }
+
+  .velocity-color { color: #0284c7; }
+  .pressure-color { color: #059669; }
+  .temp-color { color: #ea580c; }
+
+  .telemetry-content {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 0 16px 16px 16px;
+
+    .current-metric {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+
+      .telemetry-num {
+        font-size: 2.2rem;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1;
+      }
+
+      .telemetry-unit {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #64748b;
+      }
+    }
+
+    .history-stats {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+      font-size: 0.75rem;
+      color: #64748b;
+
+      .trend-badge {
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background-color: #dcfce7;
+        color: #15803d;
+
+        &.warning-trend {
+          background-color: #fee2e2;
+          color: #b91c1c;
+        }
+      }
+    }
+  }
+}
+
+.telemetry-connecting-banner {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+
+  .banner-text {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    color: #475569;
+    font-size: 0.85rem;
+
+    mat-icon {
+      color: #0284c7;
+      animation: spin 2s linear infinite;
+    }
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Fleet Metrics Grid */
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -114,28 +312,28 @@
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   }
 
   mat-card-content {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 18px;
+    gap: 14px;
+    padding: 14px 18px;
   }
 
   .metric-icon {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
     border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
 
     mat-icon {
-      font-size: 26px;
-      width: 26px;
-      height: 26px;
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
     }
   }
 
@@ -145,37 +343,22 @@
   }
 
   .metric-label {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: #64748b;
     font-weight: 500;
   }
 
   .metric-value {
-    font-size: 1.6rem;
+    font-size: 1.45rem;
     font-weight: 700;
     color: #0f172a;
     line-height: 1.2;
   }
 
-  &.total-card .metric-icon {
-    background-color: #f0fdf4;
-    color: #16a34a;
-  }
-
-  &.operational-card .metric-icon {
-    background-color: #f0f9ff;
-    color: #0284c7;
-  }
-
-  &.maintenance-card .metric-icon {
-    background-color: #fffbeb;
-    color: #d97706;
-  }
-
-  &.temp-card .metric-icon {
-    background-color: #fdf2f8;
-    color: #db2777;
-  }
+  &.total-card .metric-icon { background-color: #f0fdf4; color: #16a34a; }
+  &.operational-card .metric-icon { background-color: #f0f9ff; color: #0284c7; }
+  &.maintenance-card .metric-icon { background-color: #fffbeb; color: #d97706; }
+  &.fleet-temp-card .metric-icon { background-color: #fdf2f8; color: #db2777; }
 }
 
 /* Workspace Card & Table */
@@ -193,7 +376,7 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 16px 20px;
+  padding: 14px 20px;
   border-bottom: 1px solid #f1f5f9;
   flex-wrap: wrap;
 }
@@ -208,7 +391,7 @@
 
   button {
     border-radius: 20px;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     color: #64748b;
     border-color: #e2e8f0;
 
@@ -227,8 +410,8 @@
 .add-btn {
   border-radius: 8px;
   font-weight: 500;
-  padding: 0 20px;
-  height: 42px;
+  padding: 0 18px;
+  height: 40px;
 }
 
 /* Table */
@@ -245,17 +428,17 @@
   th {
     background-color: #f8fafc;
     color: #475569;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    padding: 14px 16px;
+    padding: 12px 16px;
     border-bottom: 1px solid #e2e8f0;
   }
 
   td {
-    padding: 14px 16px;
-    font-size: 0.9rem;
+    padding: 12px 16px;
+    font-size: 0.88rem;
     color: #1e293b;
     border-bottom: 1px solid #f1f5f9;
   }
@@ -270,8 +453,9 @@
   font-weight: 600;
   color: #0284c7;
   background-color: #f0f9ff;
-  padding: 4px 8px;
+  padding: 3px 6px;
   border-radius: 4px;
+  font-size: 0.82rem;
 }
 
 .item-name {
@@ -280,17 +464,17 @@
 }
 
 .item-model {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: #64748b;
 }
 
 .category-chip {
   display: inline-block;
-  padding: 4px 10px;
+  padding: 3px 8px;
   background-color: #f1f5f9;
   color: #334155;
   border-radius: 12px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 500;
 }
 
@@ -304,9 +488,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 12px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
 
   .status-dot {

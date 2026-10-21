@@ -1,6 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -15,10 +16,13 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatBadgeModule } from '@angular/material/badge';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 
 import { EquipmentService, EquipmentSummary } from './services/equipment.service';
 import { ElectronService, PlatformInfo } from './services/electron.service';
+import { TelemetryApiService } from './services/telemetry-api.service';
 import { Equipment, EquipmentFilter } from './models/equipment.model';
+import { DashboardResponse } from './models/telemetry.model';
 import { EquipmentDialogComponent } from './components/equipment-dialog/equipment-dialog.component';
 
 @Component({
@@ -40,12 +44,13 @@ import { EquipmentDialogComponent } from './components/equipment-dialog/equipmen
     MatSelectModule,
     MatTooltipModule,
     MatDividerModule,
-    MatBadgeModule
+    MatBadgeModule,
+    MatProgressBarModule
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })
-export class App implements OnInit {
+export class App implements OnInit, OnDestroy {
   public displayedColumns: string[] = [
     'id',
     'name',
@@ -70,6 +75,12 @@ export class App implements OnInit {
     avgTemperature: 0
   };
 
+  // Live Backend Telemetry State
+  public liveTelemetry: DashboardResponse | null = null;
+  public backendConnected = false;
+  public lastTelemetryUpdate: string | null = null;
+  private telemetrySub?: Subscription;
+
   public isDesktop = false;
   public platformDetails: PlatformInfo = { platform: 'unknown', arch: '', version: '' };
   public appVersion = '1.0.0';
@@ -77,6 +88,7 @@ export class App implements OnInit {
   constructor(
     private equipmentService: EquipmentService,
     private electronService: ElectronService,
+    private telemetryApi: TelemetryApiService,
     private dialog: MatDialog,
     private snackBar: MatSnackBar
   ) {}
@@ -95,6 +107,33 @@ export class App implements OnInit {
     // Subscribe to real-time computed metrics
     this.equipmentService.summary$.subscribe(sum => {
       this.summary = sum;
+    });
+
+    // Connect to the running Spring Boot Backend API (polls every 1500ms)
+    this.connectBackendTelemetry();
+  }
+
+  public ngOnDestroy(): void {
+    if (this.telemetrySub) {
+      this.telemetrySub.unsubscribe();
+    }
+  }
+
+  public connectBackendTelemetry(): void {
+    this.telemetrySub = this.telemetryApi.streamDashboardData(1500).subscribe({
+      next: (data) => {
+        if (data) {
+          this.liveTelemetry = data;
+          this.backendConnected = true;
+          this.lastTelemetryUpdate = new Date().toLocaleTimeString();
+        } else {
+          this.backendConnected = false;
+        }
+      },
+      error: (err) => {
+        console.warn('Backend API connection warning:', err);
+        this.backendConnected = false;
+      }
     });
   }
 

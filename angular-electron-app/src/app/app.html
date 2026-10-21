@@ -4,18 +4,29 @@
     <div class="toolbar-brand">
       <mat-icon class="brand-icon">precision_manufacturing</mat-icon>
       <div class="brand-info">
-        <span class="brand-title">Atlas Copco &bull; Industrial Equipment Monitor</span>
-        <span class="brand-sub">Standalone Desktop &amp; Workstation Suite</span>
+        <span class="brand-title">Atlas Copco &bull; Industrial Telemetry &amp; Asset Suite</span>
+        <span class="brand-sub">Desktop Workstation Monitor &amp; Live Server Bridge</span>
       </div>
     </div>
 
     <span class="toolbar-spacer"></span>
 
-    <!-- Electron Environment Badge -->
+    <!-- Backend Connection Indicator -->
+    <div class="backend-status-pill" [class.connected]="backendConnected" [class.disconnected]="!backendConnected">
+      <span class="pulse-indicator"></span>
+      <mat-icon class="status-icon">{{ backendConnected ? 'cloud_done' : 'cloud_off' }}</mat-icon>
+      <div class="backend-text">
+        <span class="status-title">{{ backendConnected ? 'Spring Boot API Live' : 'Backend Disconnected' }}</span>
+        <span class="status-sub" *ngIf="backendConnected">Port 8080 &bull; {{ lastTelemetryUpdate }}</span>
+        <span class="status-sub" *ngIf="!backendConnected">Waiting for localhost:8080</span>
+      </div>
+    </div>
+
+    <!-- Electron Runtime Badge -->
     <div class="runtime-badge" [class.desktop-active]="isDesktop">
       <mat-icon>{{ isDesktop ? 'desktop_windows' : 'language' }}</mat-icon>
-      <span>{{ isDesktop ? 'Electron Desktop App' : 'Browser Web Mode' }}</span>
-      <span class="platform-chip" *ngIf="isDesktop">({{ platformDetails.platform }}-{{ platformDetails.arch }})</span>
+      <span>{{ isDesktop ? 'Desktop App' : 'Web Client' }}</span>
+      <span class="platform-chip" *ngIf="isDesktop">({{ platformDetails.platform }})</span>
     </div>
 
     <button mat-icon-button (click)="resetMockData()" matTooltip="Reset In-Memory Data to Defaults">
@@ -25,13 +36,93 @@
 
   <!-- Main Container -->
   <main class="main-content">
-    <!-- Stat Cards Overview -->
+
+    <!-- LIVE TELEMETRY CARDS (From Spring Boot Server) -->
+    <div class="telemetry-section-header">
+      <div class="section-title">
+        <mat-icon class="section-icon">sensors</mat-icon>
+        <h2>Live Machine Telemetry (Spring Boot Backend: /api/dashboard)</h2>
+      </div>
+      <span class="live-tag" *ngIf="backendConnected">REAL-TIME STREAMING (1.5s POLLING)</span>
+    </div>
+
+    <section class="telemetry-grid" *ngIf="liveTelemetry">
+      <!-- Velocity Card -->
+      <mat-card class="telemetry-card velocity-card" appearance="outlined">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="telemetry-avatar velocity-color">speed</mat-icon>
+          <mat-card-title>Vibration / Velocity</mat-card-title>
+          <mat-card-subtitle>Active Sensor Stream</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content class="telemetry-content">
+          <div class="current-metric">
+            <span class="telemetry-num">{{ liveTelemetry.velocity.value | number:'1.1-2' }}</span>
+            <span class="telemetry-unit">{{ liveTelemetry.velocity.unit }}</span>
+          </div>
+          <div class="history-stats">
+            <span>Recent Samples: {{ liveTelemetry.velocity.history.length }}</span>
+            <span class="trend-badge">Active</span>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Pressure Card -->
+      <mat-card class="telemetry-card pressure-card" appearance="outlined">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="telemetry-avatar pressure-color">compress</mat-icon>
+          <mat-card-title>Chamber Pressure</mat-card-title>
+          <mat-card-subtitle>Pneumatic Core</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content class="telemetry-content">
+          <div class="current-metric">
+            <span class="telemetry-num">{{ liveTelemetry.pressure.value | number:'1.1-1' }}</span>
+            <span class="telemetry-unit">{{ liveTelemetry.pressure.unit }}</span>
+          </div>
+          <div class="history-stats">
+            <span>Recent Samples: {{ liveTelemetry.pressure.history.length }}</span>
+            <span class="trend-badge">Active</span>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Temperature Card -->
+      <mat-card class="telemetry-card temp-live-card" appearance="outlined">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="telemetry-avatar temp-color">device_thermostat</mat-icon>
+          <mat-card-title>Motor Temperature</mat-card-title>
+          <mat-card-subtitle>Thermal Sensor</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content class="telemetry-content">
+          <div class="current-metric">
+            <span class="telemetry-num">{{ liveTelemetry.temperature.value | number:'1.1-2' }}</span>
+            <span class="telemetry-unit">{{ liveTelemetry.temperature.unit }}</span>
+          </div>
+          <div class="history-stats">
+            <span>Recent Samples: {{ liveTelemetry.temperature.history.length }}</span>
+            <span class="trend-badge" [class.warning-trend]="liveTelemetry.temperature.value > 40">
+              {{ liveTelemetry.temperature.value > 40 ? 'Warm' : 'Optimal' }}
+            </span>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </section>
+
+    <!-- Fallback if backend is connecting -->
+    <div *ngIf="!liveTelemetry" class="telemetry-connecting-banner">
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      <div class="banner-text">
+        <mat-icon>sync</mat-icon>
+        <span>Connecting to Spring Boot Telemetry API at http://localhost:8080/api/dashboard...</span>
+      </div>
+    </div>
+
+    <!-- ASSET MANAGEMENT OVERVIEW (In-Memory Fleet) -->
     <section class="metrics-grid">
       <mat-card class="metric-card total-card" appearance="outlined">
         <mat-card-content>
           <div class="metric-icon"><mat-icon>inventory_2</mat-icon></div>
           <div class="metric-details">
-            <span class="metric-label">Total Monitored Assets</span>
+            <span class="metric-label">Total Monitored Fleet</span>
             <span class="metric-value">{{ summary.total }}</span>
           </div>
         </mat-card-content>
@@ -57,11 +148,11 @@
         </mat-card-content>
       </mat-card>
 
-      <mat-card class="metric-card temp-card" appearance="outlined">
+      <mat-card class="metric-card fleet-temp-card" appearance="outlined">
         <mat-card-content>
           <div class="metric-icon"><mat-icon>thermostat</mat-icon></div>
           <div class="metric-details">
-            <span class="metric-label">Avg Core Temp</span>
+            <span class="metric-label">Avg Fleet Temp</span>
             <span class="metric-value">{{ summary.avgTemperature }}°C</span>
           </div>
         </mat-card-content>
@@ -79,7 +170,7 @@
             matInput
             [(ngModel)]="searchQuery"
             (ngModelChange)="onSearchChange()"
-            placeholder="Search by ID, name, or model..."
+            placeholder="Search equipment by ID, name, or model..."
           >
           <button
             *ngIf="searchQuery"
@@ -224,7 +315,7 @@
           <tr class="mat-row" *matNoDataRow>
             <td class="mat-cell empty-table" colspan="8">
               <mat-icon class="empty-icon">search_off</mat-icon>
-              <div>No matching industrial equipment found for the current query/filter.</div>
+              <div>No matching industrial equipment found.</div>
             </td>
           </tr>
         </table>
