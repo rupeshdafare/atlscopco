@@ -11,7 +11,43 @@
     "test": "ng test",
     "electron": "electron .",
     "electron:dev": "concurrently -k -s first \"npm start\" \"wait-on tcp:4200 && electron .\"",
-    "electron:prod": "cross-env NODE_ENV=production electron ."
+    "electron:prod": "cross-env NODE_ENV=production electron .",
+    "pack:win": "npm run build:prod && electron-builder --dir",
+    "dist:win": "npm run build:prod && cross-env NODE_OPTIONS=--max-old-space-size=4096 electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "com.atlascopco.telemetrysuite",
+    "productName": "Atlas Copco Desktop Suite",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/angular-electron-app/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "extraResources/server.jar",
+        "to": "server.jar"
+      },
+      {
+        "from": "extraResources/jre",
+        "to": "jre"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "MyApplication-Setup.exe"
+    }
   },
   "private": true,
   "packageManager": "npm@11.10.1",
@@ -35,6 +71,7 @@
     "concurrently": "^10.0.6",
     "cross-env": "^10.1.0",
     "electron": "^45.0.0",
+    "electron-builder": "^26.15.3",
     "jsdom": "^30.0.0",
     "prettier": "^3.8.1",
     "typescript": "~6.0.2",

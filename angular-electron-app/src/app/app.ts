@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -68,13 +68,16 @@ export class App implements OnInit, OnDestroy {
     private electronService: ElectronService,
     private telemetryApi: TelemetryApiService,
     private exportService: TelemetryExportService,
-    private snackBar: MatSnackBar
-  ) {}
+    private snackBar: MatSnackBar,
+    private cdr: ChangeDetectorRef,
+    private ngZone: NgZone
+  ) { }
 
   public async ngOnInit(): Promise<void> {
     this.isDesktop = this.electronService.isElectron;
     this.platformDetails = await this.electronService.getPlatformDetails();
     this.appVersion = await this.electronService.getAppVersion();
+    this.cdr.detectChanges();
 
     // Check saved theme
     const savedTheme = localStorage.getItem('app-theme');
@@ -114,21 +117,27 @@ export class App implements OnInit, OnDestroy {
 
     this.telemetrySub = this.telemetryApi.streamDashboardData(1000).subscribe({
       next: (data) => {
-        this.isInitialLoading = false;
-        if (data) {
-          this.liveTelemetry = data;
-          this.backendConnected = true;
-          const now = new Date();
-          this.lastTelemetryUpdate = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-          this.lastUpdateFull = `${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ${this.lastTelemetryUpdate}`;
-        } else {
-          this.backendConnected = false;
-        }
+        this.ngZone.run(() => {
+          this.isInitialLoading = false;
+          if (data) {
+            this.liveTelemetry = data;
+            this.backendConnected = true;
+            const now = new Date();
+            this.lastTelemetryUpdate = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            this.lastUpdateFull = `${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ${this.lastTelemetryUpdate}`;
+          } else {
+            this.backendConnected = false;
+          }
+          this.cdr.detectChanges();
+        });
       },
       error: (err) => {
-        this.isInitialLoading = false;
-        this.backendConnected = false;
-        console.warn('Backend API connection warning:', err);
+        this.ngZone.run(() => {
+          this.isInitialLoading = false;
+          this.backendConnected = false;
+          console.warn('Backend API connection warning:', err);
+          this.cdr.detectChanges();
+        });
       }
     });
   }
